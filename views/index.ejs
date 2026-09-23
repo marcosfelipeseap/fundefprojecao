@@ -15,6 +15,9 @@
         .tab-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4); }
         .tab-btn { background-color: #f8fafc; color: #64748b; border-color: #cbd5e1; }
         .item-checkbox:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
+        /* Oculta setinhas chatas do input number */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
 </head>
 <body class="bg-slate-50 font-sans antialiased p-4 md:p-8">
@@ -28,7 +31,7 @@
                 <p class="text-slate-500 mt-1">Selecione o agrupamento e o período desejado</p>
             </div>
             
-            <div class="flex items-center space-x-6 mt-6 md:mt-0">
+            <div class="flex items-center space-x-6 mt-6 md:mt-0 flex-wrap gap-y-4 justify-end">
                 <div class="flex space-x-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
                     <button id="btnF1" onclick="setFundef(1)" class="tab-btn active px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 1</button>
                     <button id="btnF2" onclick="setFundef(2)" class="tab-btn px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 2</button>
@@ -50,11 +53,21 @@
                             <option value="diario">📊 Por Dia</option>
                         </select>
                     </div>
+
+                    <!-- BOTÕES DE EDIÇÃO TEMPORÁRIA -->
+                    <div class="flex items-center space-x-1 border-l border-slate-300 pl-2 ml-1 h-full">
+                        <button id="btnEdit" onclick="toggleEditMode()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm">
+                            ✏️ Editar Valores
+                        </button>
+                        <button id="btnReset" onclick="resetData()" class="hidden px-3 py-1.5 bg-red-50 border border-red-200 rounded text-sm text-red-600 font-bold hover:bg-red-100 transition-colors shadow-sm" title="Descartar edições e voltar ao original">
+                            🔄 Resetar
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <p class="text-xs text-center text-slate-400 mb-2">Nota: Se um item na planilha for inserido sem data, ele será listado como "Sem Data" nos gráficos e somado normalmente aos totais.</p>
+        <p class="text-xs text-center text-slate-400 mb-2">Nota: As edições feitas aqui são temporárias para simulação. Ao recarregar a página ou clicar em Resetar, os dados oficiais da planilha retornam.</p>
         <h2 class="text-center text-xl font-bold text-slate-700 mt-4 mb-2">Visão Geral: <span id="lblFundefMain" class="text-blue-600">FUNDEF 1</span></h2>
 
         <!-- KPIs GERAIS DO TOPO -->
@@ -114,9 +127,10 @@
         </div>
 
         <!-- TABELA FINANCEIRA EXECUTIVA -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-8">
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-8" id="tabelaContainer">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center transition-colors" id="tabelaHeaderUI">
                 <h2 class="text-lg font-bold text-slate-800">Tabela de Valores Individuais - <span class="lblFundefTable text-blue-600">FUNDEF 1</span></h2>
+                <span id="lblSimulacao" class="hidden text-xs font-bold text-white bg-blue-600 px-2 py-1 rounded-md animate-pulse">MODO SIMULAÇÃO ATIVO</span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse min-w-[1400px]">
@@ -130,15 +144,11 @@
                             <th colspan="3" id="thEst" class="text-center bg-purple-50 text-purple-800">EM ESTOQUE</th>
                         </tr>
                         <tr>
-                            <!-- Demanda Geral -->
                             <th class="text-center bg-orange-50">Solicitado</th>
                             <th class="text-center bg-emerald-50">Entregue Total</th>
                             <th class="text-center bg-red-50 border-r-2 border-slate-300">Pendente</th>
-                            <!-- Produzido -->
                             <th class="text-center bg-blue-50">Qtd</th><th class="text-center bg-blue-50">Val. Orig</th><th class="text-center bg-blue-50 border-r-2 border-slate-300">Val. Reaj</th>
-                            <!-- Entregue -->
                             <th class="text-center bg-green-50">Qtd</th><th class="text-center bg-green-50">Val. Orig</th><th class="text-center bg-green-50 border-r-2 border-slate-300">Val. Reaj</th>
-                            <!-- Estoque -->
                             <th class="text-center bg-purple-50">Qtd</th><th class="text-center bg-purple-50">Val. Orig</th><th class="text-center bg-purple-50">Val. Reaj</th>
                         </tr>
                     </thead>
@@ -168,9 +178,11 @@
     <script>
         Chart.register(ChartDataLabels);
         
-        let rawData = [];
+        let originalData = []; // Backup imaculado da Planilha
+        let rawData = [];      // Dados em uso / editáveis
         let activeFundef = 1;
         let charts = {};
+        let isEditMode = false;
         
         document.getElementById('dataFim').value = new Date().toISOString().split('T')[0];
         const formatMoney = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
@@ -191,10 +203,13 @@
         async function init() {
             try {
                 const response = await fetch('/api/dados');
-                rawData = await response.json();
+                const fetched = await response.json();
                 
-                document.getElementById('dataInicio').addEventListener('change', updateAll);
-                document.getElementById('dataFim').addEventListener('change', updateAll);
+                originalData = JSON.parse(JSON.stringify(fetched));
+                rawData = JSON.parse(JSON.stringify(fetched));
+                
+                document.getElementById('dataInicio').addEventListener('change', () => updateAll(false));
+                document.getElementById('dataFim').addEventListener('change', () => updateAll(false));
                 
                 updateAll(true);
             } catch (error) {
@@ -202,6 +217,60 @@
                 alert("Erro ao ler dados da planilha.");
             }
         }
+
+        // ==========================================
+        // LÓGICA DE EDIÇÃO TEMPORÁRIA "WHAT-IF"
+        // ==========================================
+        window.toggleEditMode = function() {
+            isEditMode = !isEditMode;
+            const btnEdit = document.getElementById('btnEdit');
+            
+            if (isEditMode) {
+                btnEdit.innerHTML = '✅ Concluir Edição';
+                btnEdit.className = "px-3 py-1.5 bg-blue-600 border border-blue-700 rounded text-sm text-white font-bold hover:bg-blue-700 transition-colors shadow-md";
+                document.getElementById('lblSimulacao').classList.remove('hidden');
+                document.getElementById('tabelaHeaderUI').classList.replace('bg-slate-50', 'bg-blue-50');
+            } else {
+                btnEdit.innerHTML = '✏️ Editar Valores';
+                btnEdit.className = "px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm";
+                document.getElementById('lblSimulacao').classList.add('hidden');
+                document.getElementById('tabelaHeaderUI').classList.replace('bg-blue-50', 'bg-slate-50');
+            }
+            updateAll(false);
+        };
+
+        window.updateSim = function(matchKey, field, val) {
+            let num = parseFloat(val);
+            if(isNaN(num) || num < 0) num = 0;
+            
+            let item = rawData.find(d => d.matchKey === matchKey);
+            if(item) {
+                // Se a edição for de Quantidade Produzida/Entregue, nós sobreescrevemos o histórico inteiro
+                // e jogamos esse número como um "evento único" na data final do filtro atual.
+                if (field === 'eventos_producao' || field === 'eventos_entrega') {
+                    let dFimStr = document.getElementById('dataFim').value;
+                    item[field] = [{ data: dFimStr, qtd: num }];
+                } else {
+                    item[field] = num;
+                }
+                document.getElementById('btnReset').classList.remove('hidden'); 
+                updateAll(false);
+            }
+        };
+
+        window.resetData = function() {
+            rawData = JSON.parse(JSON.stringify(originalData));
+            isEditMode = false;
+            
+            const btnEdit = document.getElementById('btnEdit');
+            btnEdit.innerHTML = '✏️ Editar Valores';
+            btnEdit.className = "px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm";
+            document.getElementById('lblSimulacao').classList.add('hidden');
+            document.getElementById('tabelaHeaderUI').classList.replace('bg-blue-50', 'bg-slate-50');
+            document.getElementById('btnReset').classList.add('hidden');
+            
+            updateAll(false);
+        };
 
         window.setFundef = function(fNum) {
             activeFundef = fNum;
@@ -288,9 +357,6 @@
             return timeline.length ? timeline : [{ date: 'Sem Dados', pQtdDaily:0, pQtdAcum:0, pOrigDaily:0, pOrigAcum:0, pReajDaily:0, pReajAcum:0, eQtdDaily:0, eQtdAcum:0, eOrigDaily:0, eOrigAcum:0, eReajDaily:0, eReajAcum:0 }];
         }
 
-        // ==========================================
-        // FUNÇÃO MOTOR DE DESENHO (Com correção de Sobreposição)
-        // ==========================================
         function render4Charts(timeline, prefix) {
             const labels = timeline.map(t => t.date);
             const isAcum = document.getElementById('chartViewMode').value === 'acumulado';
@@ -299,17 +365,13 @@
             drawLineChart(`chart${prefix}ProdQtd`, labels, [
                 { label: `Qtd Produzida ${suffix}`, data: timeline.map(t => isAcum ? t.pQtdAcum : t.pQtdDaily), borderColor: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' }
             ], 'num', isAcum);
-            
-            // Gráficos de Valor (Onde ocorria a sobreposição)
             drawLineChart(`chart${prefix}ProdVal`, labels, [
                 { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.pReajAcum : t.pReajDaily), borderColor: '#4f46e5', bg: 'transparent' },
                 { label: `Val. Original`, data: timeline.map(t => isAcum ? t.pOrigAcum : t.pOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
             ], 'val', isAcum);
-            
             drawLineChart(`chart${prefix}EntQtd`, labels, [
                 { label: `Qtd Entregue ${suffix}`, data: timeline.map(t => isAcum ? t.eQtdAcum : t.eQtdDaily), borderColor: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }
             ], 'num', isAcum);
-            
             drawLineChart(`chart${prefix}EntVal`, labels, [
                 { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.eReajAcum : t.eReajDaily), borderColor: '#059669', bg: 'transparent' },
                 { label: `Val. Original`, data: timeline.map(t => isAcum ? t.eOrigAcum : t.eOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
@@ -334,32 +396,20 @@
                 data: { labels, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    layout: { padding: { top: 15, bottom: 5 } }, // Dá espaço para os rótulos não cortarem
+                    layout: { padding: { top: 15, bottom: 5 } },
                     plugins: { 
                         legend: { position: 'top', labels: {boxWidth: 10, font: {size: 10}} },
-                        
-                        // CONFIGURAÇÃO INTELIGENTE DOS RÓTULOS (Resolve o BUG da Sobreposição)
                         datalabels: {
-                            // Se for linha, joga o primeiro dado pra cima e o segundo pra baixo. Em barras, todos vão no topo.
                             align: (context) => chartType === 'line' ? (context.datasetIndex === 0 ? 'top' : 'bottom') : 'top',
-                            anchor: 'end',
-                            offset: 4,
-                            font: {size: 9, weight: 'bold'}, 
-                            
-                            // Cor da fonte acompanha a cor da linha/barra
+                            anchor: 'end', offset: 4, font: {size: 9, weight: 'bold'}, 
                             color: (context) => context.dataset.borderColor, 
-                            
                             formatter: (v, context) => {
                                 if (!v || v <= 0) return ''; 
-                                
-                                // Oculta o número do "Original" se for IDÊNTICO ao "Reajustado" na linha para não sobrepor
                                 if (chartType === 'line' && context.datasetIndex === 1) {
                                     const outroValor = context.chart.data.datasets[0].data[context.dataIndex];
                                     if (v === outroValor) return ''; 
                                 }
-
                                 if (type === 'val') {
-                                    // Adicionado formatação "M" para valores milionários e não poluir a tela
                                     if (v >= 1000000) return 'R$ ' + (v/1000000).toFixed(1).replace('.',',') + 'M';
                                     return 'R$ ' + (v/1000).toFixed(0) + 'k';
                                 }
@@ -375,9 +425,7 @@
             });
         }
 
-        // ==========================================
-        // TABELA E KPIS
-        // ==========================================
+        // Tabela Financeira com TODOS os Inputs liberados
         function updateTableAndKPIs(fData, tsStart, tsEnd) {
             const dIn = document.getElementById('dataInicio').value.split('-').reverse().join('/');
             const dOut = document.getElementById('dataFim').value.split('-').reverse().join('/');
@@ -417,38 +465,68 @@
 
                 ['sQ','sO','sR','eTot','eTotO','eTotR','fQ','fO','fR','pQ','pO','pR','eQ','eO','eR','estQ','estO','estR'].forEach(k => sums[k] += rowVals[k]);
 
+                // 1. PREÇOS
+                const tdPrecoHtml = isEditMode 
+                    ? `<div class="flex flex-col gap-1 items-center">
+                        <input type="number" step="0.01" class="w-20 text-center border border-slate-300 rounded text-xs p-1 text-slate-600 focus:outline-none focus:border-blue-500 bg-white shadow-inner" value="${d.preco_orig.toFixed(2)}" onchange="updateSim('${d.matchKey}', 'preco_orig', this.value)" title="Preço Original">
+                        <input type="number" step="0.01" class="w-20 text-center border border-blue-300 rounded text-xs p-1 font-bold text-slate-800 bg-blue-50 focus:outline-none focus:border-blue-500 shadow-inner" value="${d.preco_reaj.toFixed(2)}" onchange="updateSim('${d.matchKey}', 'preco_reaj', this.value)" title="Preço Reajustado">
+                       </div>`
+                    : `<span class="text-slate-500">${formatMoney(d.preco_orig)}</span><br><b class="text-slate-800">${formatMoney(d.preco_reaj)}</b>`;
+
+                // 2. SOLICITADO
+                const tdSolHtml = isEditMode
+                    ? `<input type="number" step="1" class="w-20 text-center border border-orange-400 rounded text-sm p-1 font-bold text-orange-700 focus:outline-none focus:border-orange-500 shadow-inner bg-white" value="${rowVals.sQ}" onchange="updateSim('${d.matchKey}', 'qtd_solicitada', this.value)" title="Quantidade Solicitada">`
+                    : `${rowVals.sQ.toLocaleString('pt-BR')} un`;
+
+                // 3. PRODUZIDO
+                const tdProdQtdHtml = isEditMode
+                    ? `<input type="number" step="1" class="w-20 text-center border border-blue-400 rounded text-sm p-1 font-bold text-blue-700 focus:outline-none focus:border-blue-500 shadow-inner bg-white" value="${rowVals.pQ}" onchange="updateSim('${d.matchKey}', 'eventos_producao', this.value)" title="Simular Quantidade Produzida">`
+                    : `${rowVals.pQ.toLocaleString('pt-BR')}`;
+
+                // 4. ENTREGUE
+                const tdEntQtdHtml = isEditMode
+                    ? `<input type="number" step="1" class="w-20 text-center border border-green-400 rounded text-sm p-1 font-bold text-green-700 focus:outline-none focus:border-green-500 shadow-inner bg-white" value="${rowVals.eQ}" onchange="updateSim('${d.matchKey}', 'eventos_entrega', this.value)" title="Simular Quantidade Entregue">`
+                    : `${rowVals.eQ.toLocaleString('pt-BR')}`;
+
+                // 5. ESTOQUE
+                const tdEstoqueHtml = isEditMode
+                    ? `<input type="number" step="1" class="w-20 text-center border border-purple-400 rounded text-sm p-1 font-bold text-purple-700 focus:outline-none focus:border-purple-500 shadow-inner bg-white" value="${rowVals.estQ}" onchange="updateSim('${d.matchKey}', 'estoque_total', this.value)" title="Simular Estoque">`
+                    : `${rowVals.estQ.toLocaleString('pt-BR')}`;
+
                 tbody.innerHTML += `
                     <tr>
                         <td class="font-semibold text-slate-700 text-xs">${d.item}</td>
-                        <td class="text-center border-r-2 border-slate-300 text-xs"><span class="text-slate-500">${formatMoney(d.preco_orig)}</span><br><b class="text-slate-800">${formatMoney(d.preco_reaj)}</b></td>
+                        <td class="text-center border-r-2 border-slate-300 align-middle">
+                            ${tdPrecoHtml}
+                        </td>
                         
-                        <td class="text-center bg-orange-50/50">
-                            <div class="font-bold text-orange-700 text-sm">${rowVals.sQ.toLocaleString('pt-BR')} un</div>
+                        <td class="text-center bg-orange-50/50 align-middle">
+                            <div class="font-bold text-orange-700 text-sm flex justify-center">${tdSolHtml}</div>
                             <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.sO)}</div>
                             <div class="text-[10px] text-orange-600 font-semibold">Reaj: ${formatMoney(rowVals.sR)}</div>
                         </td>
-                        <td class="text-center bg-emerald-50/50">
+                        <td class="text-center bg-emerald-50/50 align-middle">
                             <div class="font-bold text-emerald-700 text-sm">${rowVals.eTot.toLocaleString('pt-BR')} un</div>
                             <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.eTotO)}</div>
                             <div class="text-[10px] text-emerald-600 font-semibold">Reaj: ${formatMoney(rowVals.eTotR)}</div>
                         </td>
-                        <td class="text-center bg-red-50/50 border-r-2 border-slate-300">
+                        <td class="text-center bg-red-50/50 border-r-2 border-slate-300 align-middle">
                             <div class="font-bold text-red-600 text-sm">${rowVals.fQ.toLocaleString('pt-BR')} un</div>
                             <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.fO)}</div>
                             <div class="text-[10px] text-red-500 font-semibold">Reaj: ${formatMoney(rowVals.fR)}</div>
                         </td>
 
-                        <td class="text-center font-bold text-blue-700 bg-blue-50/30">${rowVals.pQ.toLocaleString('pt-BR')}</td>
-                        <td class="text-center text-slate-500 bg-blue-50/30 text-[11px]">${formatMoney(rowVals.pO)}</td>
-                        <td class="text-center text-blue-600 bg-blue-50/30 font-semibold border-r-2 border-slate-300 text-[11px]">${formatMoney(rowVals.pR)}</td>
+                        <td class="text-center font-bold text-blue-700 bg-blue-50/30 align-middle">${tdProdQtdHtml}</td>
+                        <td class="text-center text-slate-500 bg-blue-50/30 text-[11px] align-middle">${formatMoney(rowVals.pO)}</td>
+                        <td class="text-center text-blue-600 bg-blue-50/30 font-semibold border-r-2 border-slate-300 text-[11px] align-middle">${formatMoney(rowVals.pR)}</td>
                         
-                        <td class="text-center font-bold text-green-700 bg-green-50/30">${rowVals.eQ.toLocaleString('pt-BR')}</td>
-                        <td class="text-center text-slate-500 bg-green-50/30 text-[11px]">${formatMoney(rowVals.eO)}</td>
-                        <td class="text-center text-green-600 bg-green-50/30 font-semibold border-r-2 border-slate-300 text-[11px]">${formatMoney(rowVals.eR)}</td>
+                        <td class="text-center font-bold text-green-700 bg-green-50/30 align-middle">${tdEntQtdHtml}</td>
+                        <td class="text-center text-slate-500 bg-green-50/30 text-[11px] align-middle">${formatMoney(rowVals.eO)}</td>
+                        <td class="text-center text-green-600 bg-green-50/30 font-semibold border-r-2 border-slate-300 text-[11px] align-middle">${formatMoney(rowVals.eR)}</td>
                         
-                        <td class="text-center font-bold text-purple-700 bg-purple-50/30">${rowVals.estQ.toLocaleString('pt-BR')}</td>
-                        <td class="text-center text-slate-500 bg-purple-50/30 text-[11px]">${formatMoney(rowVals.estO)}</td>
-                        <td class="text-center text-purple-600 bg-purple-50/30 font-semibold text-[11px]">${formatMoney(rowVals.estR)}</td>
+                        <td class="text-center font-bold text-purple-700 bg-purple-50/30 align-middle">${tdEstoqueHtml}</td>
+                        <td class="text-center text-slate-500 bg-purple-50/30 text-[11px] align-middle">${formatMoney(rowVals.estO)}</td>
+                        <td class="text-center text-purple-600 bg-purple-50/30 font-semibold text-[11px] align-middle">${formatMoney(rowVals.estR)}</td>
                     </tr>
                 `;
             });
