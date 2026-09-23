@@ -1,50 +1,68 @@
+require('dotenv').config();
 const express = require('express');
-const axios = require('axios');
-const { parse } = require('csv-parse/sync');
-const path = require('path'); // Necessário para a Vercel localizar as pastas
+const { google } = require('googleapis');
+const path = require('path');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Configura o EJS como motor de visualização e mapeia a pasta views para a Vercel
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 const SHEET_ID = '1MOFoH9H0u9PC-w_-ZpE5yfc4QpbdFui2lI_uoZtedt4';
 
-// Função para limpar textos: Remove TODOS os espaços, pontos e acentos
+// ---------------------------------------------------------
+// CORREÇÃO DA CHAVE (Evita o erro DECODER routines::unsupported)
+// Pega a variável, converte os "\n" literais em quebras de linha reais
+// e remove aspas duplas acidentais nas bordas
+let myKey = process.env.GOOGLE_PRIVATE_KEY || '';
+myKey = myKey.replace(/\\n/g, '\n').replace(/^"|"$/g, '');
+
+const auth = new google.auth.GoogleAuth({
+    credentials: {
+        client_email: process.env.GOOGLE_CLIENT_EMAIL,
+        private_key: myKey,
+    },
+    scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+});
+
+const sheets = google.sheets({ version: 'v4', auth });
+// ---------------------------------------------------------
+
+
 function sanitizeForMatch(str) {
     if (!str) return '';
     return String(str)
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "") // Remove acentos
-        .replace(/[^A-Za-z0-9]/g, "")    // Remove espaços, pontos, vírgulas
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^A-Za-z0-9]/g, "")
         .toUpperCase();
 }
 
-// Função para converter valores financeiros e quantidades em números
 function parseNumber(str) {
     if (!str) return 0;
     if (typeof str === 'number') return str;
     let s = str.toString().replace(/[R$\s]/g, '');
     if (s.includes(',') && s.includes('.')) {
-        s = s.replace(/\./g, '').replace(',', '.'); // Ex: 1.200,50 -> 1200.50
+        s = s.replace(/\./g, '').replace(',', '.');
     } else if (s.includes(',')) {
-        s = s.replace(',', '.'); // Ex: 1200,50 -> 1200.50
+        s = s.replace(',', '.');
     }
     return parseFloat(s) || 0;
 }
 
-// Normaliza os cabeçalhos das colunas
-function normalizeRow(row) {
-    const normalized = {};
-    for (let key in row) {
-        normalized[sanitizeForMatch(key)] = row[key];
-    }
-    return normalized;
+function mapRowsToObjects(rows) {
+    if (!rows || rows.length === 0) return [];
+    const headers = rows[0].map(sanitizeForMatch);
+    return rows.slice(1).map(row => {
+        let obj = {};
+        headers.forEach((header, index) => {
+            obj[header] = row[index] || '';
+        });
+        return obj;
+    });
 }
 
-// Lista exata de produtos e processos
 const targets = [
     { fundef: 1, processo: '202456010136590', item: 'CARTEIRA ESCOLAR' },
     { fundef: 1, processo: '202456010136590', item: 'CJ. ALUNO' },
@@ -58,27 +76,21 @@ const targets = [
     { fundef: 2, processo: '202656010134023', item: 'ESTANTE ABERTA 8 PRATELEIRAS' }
 ];
 
-// Função para buscar e processar as abas da planilha
-async function fetchSheet(sheetName) {
-    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
-    const response = await axios.get(url);
-    return parse(response.data, { columns: true, skip_empty_lines: true }).map(normalizeRow);
-}
-
-// Rota Principal: Renderiza a página (EJS)
 app.get('/', (req, res) => {
     res.render('index', { titulo: 'Dashboard Executivo - Móveis Escolares' });
 });
 
-// Rota da API: Fornece os dados
 app.get('/api/dados', async (req, res) => {
     try {
-        const [demandas, entregas, estoque, producao] = await Promise.all([
-            fetchSheet('DEMANDAS'),
-            fetchSheet('ENTREGAS'),
-            fetchSheet('ESTOQUE'),
-            fetchSheet('PRODUCAO')
-        ]);
+        const response = await sheets.spreadsheets.values.batchGet({
+            spreadsheetId: SHEET_ID,
+            ranges: ['DEMANDAS!A:Z', 'ENTREGAS!A:Z', 'ESTOQUE!A:Z', 'PRODUCAO!A:Z']
+        });
+
+        const demandas = mapRowsToObjects(response.data.valueRanges[0].values);
+        const entregas = mapRowsToObjects(response.data.valueRanges[1].values);
+        const estoque = mapRowsToObjects(response.data.valueRanges[2].values);
+        const producao = mapRowsToObjects(response.data.valueRanges[3].values);
 
         const dashboardData = targets.map(t => ({
             fundef: t.fundef,
@@ -94,7 +106,6 @@ app.get('/api/dados', async (req, res) => {
 
         const findMatch = (proc, item) => dashboardData.find(d => d.matchKey === (sanitizeForMatch(proc) + "_" + sanitizeForMatch(item)));
 
-        // 1. Aba DEMANDAS: Pega Preços Original e Reajustado
         demandas.forEach(row => {
             const match = findMatch(row.NPROCESSO || row.PROCESSO, row.ITEM || row.PRODUTO || row.DESCRICAO);
             if (match) {
@@ -103,47 +114,38 @@ app.get('/api/dados', async (req, res) => {
             }
         });
 
-        // 2. Aba PRODUCAO: Pega histórico de datas e quantidades
         producao.forEach(row => {
             const match = findMatch(row.PROCESSO || row.NPROCESSO, row.PRODUTO || row.ITEM);
-            if(match) {
+            if (match) {
                 match.eventos_producao.push({ data: row.DATA || '01/01/2020', qtd: parseNumber(row.QUANTIDADE || row.TOTAL) });
             }
         });
 
-        // 3. Aba ENTREGAS: Pega histórico de datas e quantidades
         entregas.forEach(row => {
             const match = findMatch(row.NPROCESSO || row.PROCESSO, row.ITEM || row.PRODUTO);
-            if(match) {
+            if (match) {
                 match.eventos_entrega.push({ data: row.DATA || '01/01/2020', qtd: parseNumber(row.TOTALENTREGUE || row.QUANTIDADE) });
             }
         });
 
-        // 4. Aba ESTOQUE: Pega total constante
         estoque.forEach(row => {
             const match = findMatch(row.PROCESSO || row.NPROCESSO, row.PRODUTO || row.ITEM);
-            if(match) {
+            if (match) {
                 match.estoque_total += parseNumber(row.QUANTIDADEEMESTOQUE || row.QUANTIDADE);
             }
         });
 
         res.json(dashboardData);
     } catch (error) {
-        console.error("Erro ao processar planilhas:", error);
-        res.status(500).json({ error: 'Erro ao processar dados da planilha' });
+        console.error("Erro na API do Google:", error);
+        res.status(500).json({ error: 'Erro ao processar dados da planilha.' });
     }
 });
 
-// ==========================================
-// CONFIGURAÇÃO DE AMBIENTE (LOCAL vs VERCEL)
-// ==========================================
-
-// Se NÃO estiver na Vercel (Production), mantém o servidor rodando para testes na sua máquina
 if (process.env.NODE_ENV !== 'production') {
     app.listen(port, () => {
-        console.log(`\n✅ Servidor rodando! Acesse: http://localhost:${port}\n`);
+        console.log(`\n✅ Servidor rodando com Google Auth! Acesse: http://localhost:${port}\n`);
     });
 }
 
-// Exporta o App para a Vercel conseguir executá-lo no ambiente Serverless
 module.exports = app;
