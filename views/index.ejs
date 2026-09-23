@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= titulo %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Plugin para mostrar os números dentro do gráfico -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Estilização extra para a tabela executiva */
+        table th { background-color: #f1f5f9; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; color: #475569; padding: 12px; border: 1px solid #e2e8f0; }
+        table td { padding: 12px; border: 1px solid #e2e8f0; font-size: 0.875rem; color: #1e293b; }
+        table tbody tr:hover { background-color: #f8fafc; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Cabeçalho e Filtros -->
+        <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-slate-800"><i class="fa-solid fa-chart-line text-blue-600 mr-2"></i> <%= titulo %></h1>
+                <p class="text-slate-500 mt-1">Evolução Temporal e Detalhamento Financeiro</p>
+            </div>
+            <div class="flex items-center space-x-4 mt-4 md:mt-0 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div class="flex flex-col">
+                    <label class="text-xs font-semibold text-slate-500">Data Inicial</label>
+                    <input type="date" id="dataInicio" value="2026-08-15" class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-xs font-semibold text-slate-500">Data Final</label>
+                    <input type="date" id="dataFim" class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm">
+                </div>
+            </div>
+        </div>
+
+        <!-- KPIs Globais -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-blue-500">
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total Produzido</h3>
+                <p class="text-3xl font-bold text-slate-800 mt-2" id="kpiProdNum">0 un</p>
+                <div class="mt-2 text-xs text-slate-500 flex justify-between">
+                    <span>Orig: <b id="kpiProdOrig" class="text-slate-700">R$ 0</b></span>
+                    <span>Reaj: <b id="kpiProdReaj" class="text-blue-600">R$ 0</b></span>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-green-500">
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total Entregue</h3>
+                <p class="text-3xl font-bold text-slate-800 mt-2" id="kpiEntNum">0 un</p>
+                <div class="mt-2 text-xs text-slate-500 flex justify-between">
+                    <span>Orig: <b id="kpiEntOrig" class="text-slate-700">R$ 0</b></span>
+                    <span>Reaj: <b id="kpiEntReaj" class="text-green-600">R$ 0</b></span>
+                </div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-purple-500">
+                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Em Estoque Constante</h3>
+                <p class="text-3xl font-bold text-slate-800 mt-2" id="kpiEstNum">0 un</p>
+                <div class="mt-2 text-xs text-slate-500 flex justify-between">
+                    <span>Orig: <b id="kpiEstOrig" class="text-slate-700">R$ 0</b></span>
+                    <span>Reaj: <b id="kpiEstReaj" class="text-purple-600">R$ 0</b></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráficos de Evolução no Tempo (Linha Acumulativa) -->
+        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-700 mb-1 text-center">FUNDEF 1 - Evolução Crescente por Data</h2>
+                <p class="text-xs text-center text-slate-400 mb-4">Volume acumulado de Produção e Entregas (Em Unidades)</p>
+                <div class="relative h-80"><canvas id="chartF1"></canvas></div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-lg font-bold text-slate-700 mb-1 text-center">FUNDEF 2 - Evolução Crescente por Data</h2>
+                <p class="text-xs text-center text-slate-400 mb-4">Volume acumulado de Produção e Entregas (Em Unidades)</p>
+                <div class="relative h-80"><canvas id="chartF2"></canvas></div>
+            </div>
+        </div>
+
+        <!-- Tabela Financeira e Detalhamento Individual -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="p-6 border-b border-slate-200 bg-slate-50">
+                <h2 class="text-xl font-bold text-slate-800">Detalhamento Individual e Financeiro</h2>
+                <p class="text-sm text-slate-500">Valores exatos por item consolidando o período selecionado.</p>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse" id="tabelaDetalhes">
+                    <thead>
+                        <tr>
+                            <th rowspan="2" class="w-64 bg-slate-100">Produto / Item</th>
+                            <th rowspan="2" class="text-center bg-slate-100 border-r-2 border-slate-300">Preço Unit.<br>(Orig / Reaj)</th>
+                            <th colspan="3" class="text-center bg-blue-50 text-blue-800 border-r-2 border-slate-300">PRODUZIDO</th>
+                            <th colspan="3" class="text-center bg-green-50 text-green-800 border-r-2 border-slate-300">ENTREGUE</th>
+                            <th colspan="3" class="text-center bg-purple-50 text-purple-800">EM ESTOQUE</th>
+                        </tr>
+                        <tr>
+                            <!-- Produzido -->
+                            <th class="text-center bg-blue-50">Qtd</th><th class="text-center bg-blue-50">Total Orig</th><th class="text-center bg-blue-50 border-r-2 border-slate-300">Total Reaj</th>
+                            <!-- Entregue -->
+                            <th class="text-center bg-green-50">Qtd</th><th class="text-center bg-green-50">Total Orig</th><th class="text-center bg-green-50 border-r-2 border-slate-300">Total Reaj</th>
+                            <!-- Estoque -->
+                            <th class="text-center bg-purple-50">Qtd</th><th class="text-center bg-purple-50">Total Orig</th><th class="text-center bg-purple-50">Total Reaj</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaBody">
+                        <!-- Preenchido via JS -->
+                    </tbody>
+                    <tfoot class="bg-slate-800 text-white font-bold" id="tabelaFoot">
+                        <!-- Totais via JS -->
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Registra o plugin de DataLabels no Chart.js
+        Chart.register(ChartDataLabels);
+
+        let rawData = [];
+        let charts = {};
+
+        document.getElementById('dataFim').value = new Date().toISOString().split('T')[0];
+        const formatMoney = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+        function parseBRDate(dateStr) {
+            if(!dateStr) return 0;
+            const p = dateStr.split('/');
+            if(p.length === 3) return new Date(p[2], p[1]-1, p[0]).getTime();
+            return 0; 
+        }
+
+        async function init() {
+            try {
+                const response = await fetch('/api/dados');
+                rawData = await response.json();
+                
+                document.getElementById('dataInicio').addEventListener('change', updateDash);
+                document.getElementById('dataFim').addEventListener('change', updateDash);
+                
+                updateDash();
+            } catch (error) {
+                console.error(error);
+                alert("Erro ao ler dados da planilha.");
+            }
+        }
+
+        function updateDash() {
+            if(!rawData.length) return;
+
+            const tsStart = new Date(document.getElementById('dataInicio').value + "T00:00:00").getTime();
+            const tsEnd = new Date(document.getElementById('dataFim').value + "T23:59:59").getTime();
+
+            // 1. PROCESSAR DADOS INDIVIDUAIS PARA TABELA E KPIS
+            let tblData = rawData.map(d => {
+                let pNum = 0, eNum = 0;
+                
+                d.eventos_producao.forEach(e => {
+                    const ts = parseBRDate(e.data);
+                    if(ts >= tsStart && ts <= tsEnd) pNum += e.qtd;
+                });
+
+                d.eventos_entrega.forEach(e => {
+                    const ts = parseBRDate(e.data);
+                    if(ts >= tsStart && ts <= tsEnd) eNum += e.qtd;
+                });
+
+                return {
+                    fundef: d.fundef,
+                    item: d.item,
+                    preco_orig: d.preco_orig,
+                    preco_reaj: d.preco_reaj,
+                    prod_n: pNum, ent_n: eNum, est_n: d.estoque_total,
+                    prod_vOrig: pNum * d.preco_orig, prod_vReaj: pNum * d.preco_reaj,
+                    ent_vOrig: eNum * d.preco_orig, ent_vReaj: eNum * d.preco_reaj,
+                    est_vOrig: d.estoque_total * d.preco_orig, est_vReaj: d.estoque_total * d.preco_reaj
+                };
+            });
+
+            // Atualiza KPIs Topo
+            const sums = tblData.reduce((acc, curr) => {
+                acc.pN += curr.prod_n; acc.pO += curr.prod_vOrig; acc.pR += curr.prod_vReaj;
+                acc.eN += curr.ent_n; acc.eO += curr.ent_vOrig; acc.eR += curr.ent_vReaj;
+                acc.sN += curr.est_n; acc.sO += curr.est_vOrig; acc.sR += curr.est_vReaj;
+                return acc;
+            }, {pN:0, pO:0, pR:0, eN:0, eO:0, eR:0, sN:0, sO:0, sR:0});
+
+            document.getElementById('kpiProdNum').innerText = sums.pN.toLocaleString('pt-BR');
+            document.getElementById('kpiProdOrig').innerText = formatMoney(sums.pO);
+            document.getElementById('kpiProdReaj').innerText = formatMoney(sums.pR);
+            
+            document.getElementById('kpiEntNum').innerText = sums.eN.toLocaleString('pt-BR');
+            document.getElementById('kpiEntOrig').innerText = formatMoney(sums.eO);
+            document.getElementById('kpiEntReaj').innerText = formatMoney(sums.eR);
+            
+            document.getElementById('kpiEstNum').innerText = sums.sN.toLocaleString('pt-BR');
+            document.getElementById('kpiEstOrig').innerText = formatMoney(sums.sO);
+            document.getElementById('kpiEstReaj').innerText = formatMoney(sums.sR);
+
+            // Atualiza Tabela Individual
+            preencherTabela(tblData, sums);
+
+            // 2. PROCESSAR DADOS PARA O GRÁFICO DE LINHA DO TEMPO CRESCENTE
+            renderTimelineChart('chartF1', rawData.filter(d => d.fundef === 1), tsStart, tsEnd);
+            renderTimelineChart('chartF2', rawData.filter(d => d.fundef === 2), tsStart, tsEnd);
+        }
+
+        function preencherTabela(data, totals) {
+            const tbody = document.getElementById('tabelaBody');
+            tbody.innerHTML = '';
+            
+            data.forEach(d => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="font-semibold text-slate-700">F${d.fundef} - ${d.item}</td>
+                        <td class="text-center border-r-2 border-slate-300"><span class="text-slate-500">${formatMoney(d.preco_orig)}</span><br><b class="text-slate-800">${formatMoney(d.preco_reaj)}</b></td>
+                        
+                        <td class="text-center font-bold text-blue-700 bg-blue-50/30">${d.prod_n.toLocaleString('pt-BR')}</td>
+                        <td class="text-center text-slate-500 bg-blue-50/30">${formatMoney(d.prod_vOrig)}</td>
+                        <td class="text-center text-blue-600 bg-blue-50/30 font-semibold border-r-2 border-slate-300">${formatMoney(d.prod_vReaj)}</td>
+                        
+                        <td class="text-center font-bold text-green-700 bg-green-50/30">${d.ent_n.toLocaleString('pt-BR')}</td>
+                        <td class="text-center text-slate-500 bg-green-50/30">${formatMoney(d.ent_vOrig)}</td>
+                        <td class="text-center text-green-600 bg-green-50/30 font-semibold border-r-2 border-slate-300">${formatMoney(d.ent_vReaj)}</td>
+                        
+                        <td class="text-center font-bold text-purple-700 bg-purple-50/30">${d.est_n.toLocaleString('pt-BR')}</td>
+                        <td class="text-center text-slate-500 bg-purple-50/30">${formatMoney(d.est_vOrig)}</td>
+                        <td class="text-center text-purple-600 bg-purple-50/30 font-semibold">${formatMoney(d.est_vReaj)}</td>
+                    </tr>
+                `;
+            });
+
+            // Rodapé com Totais
+            document.getElementById('tabelaFoot').innerHTML = `
+                <tr>
+                    <td colspan="2" class="text-right p-4 border-r-2 border-slate-600">TOTAIS GERAIS NO PERÍODO:</td>
+                    <td class="text-center bg-blue-900/40">${totals.pN.toLocaleString('pt-BR')}</td>
+                    <td class="text-center bg-blue-900/40 font-normal">${formatMoney(totals.pO)}</td>
+                    <td class="text-center bg-blue-900/40 border-r-2 border-slate-600">${formatMoney(totals.pR)}</td>
+                    
+                    <td class="text-center bg-green-900/40">${totals.eN.toLocaleString('pt-BR')}</td>
+                    <td class="text-center bg-green-900/40 font-normal">${formatMoney(totals.eO)}</td>
+                    <td class="text-center bg-green-900/40 border-r-2 border-slate-600">${formatMoney(totals.eR)}</td>
+                    
+                    <td class="text-center bg-purple-900/40">${totals.sN.toLocaleString('pt-BR')}</td>
+                    <td class="text-center bg-purple-900/40 font-normal">${formatMoney(totals.sO)}</td>
+                    <td class="text-center bg-purple-900/40">${formatMoney(totals.sR)}</td>
+                </tr>
+            `;
+        }
+
+        // Função para gerar o Gráfico de Evolução (Linha do Tempo Cumulativa)
+        function renderTimelineChart(canvasId, fundefData, tsStart, tsEnd) {
+            // Extrai todas as datas únicas e agrupa os valores do FUNDEF
+            const timelineMap = {}; // { 'YYYY-MM-DD': { prod: 0, ent: 0 } }
+            
+            fundefData.forEach(item => {
+                item.eventos_producao.forEach(e => {
+                    const ts = parseBRDate(e.data);
+                    if(ts >= tsStart && ts <= tsEnd) {
+                        const dateBR = e.data || 'S/D';
+                        if(!timelineMap[dateBR]) timelineMap[dateBR] = { ts, prod: 0, ent: 0 };
+                        timelineMap[dateBR].prod += e.qtd;
+                    }
+                });
+                item.eventos_entrega.forEach(e => {
+                    const ts = parseBRDate(e.data);
+                    if(ts >= tsStart && ts <= tsEnd) {
+                        const dateBR = e.data || 'S/D';
+                        if(!timelineMap[dateBR]) timelineMap[dateBR] = { ts, prod: 0, ent: 0 };
+                        timelineMap[dateBR].ent += e.qtd;
+                    }
+                });
+            });
+
+            // Converte pra array e ordena por data crescente
+            let timelineArray = Object.keys(timelineMap).map(k => ({ date: k, ...timelineMap[k] }));
+            timelineArray.sort((a, b) => a.ts - b.ts);
+
+            // Calcula o Acumulado (Escadinha Crescente)
+            let currentProd = 0, currentEnt = 0;
+            timelineArray = timelineArray.map(t => {
+                currentProd += t.prod;
+                currentEnt += t.ent;
+                return { date: t.date.substring(0,5), prodAcumulado: currentProd, entAcumulado: currentEnt }; // Pega só DD/MM pro eixo X
+            });
+
+            // Se não tiver dados, cria array zerado pra não bugar o chart
+            if(timelineArray.length === 0) {
+                timelineArray = [{ date: 'Sem Dados', prodAcumulado: 0, entAcumulado: 0 }];
+            }
+
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            if(charts[canvasId]) charts[canvasId].destroy();
+
+            charts[canvasId] = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timelineArray.map(t => t.date),
+                    datasets: [
+                        {
+                            label: 'Produção Acumulada',
+                            data: timelineArray.map(t => t.prodAcumulado),
+                            borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 3, tension: 0.3, fill: true,
+                            pointBackgroundColor: '#fff', pointBorderColor: '#3b82f6', pointRadius: 5
+                        },
+                        {
+                            label: 'Entrega Acumulada',
+                            data: timelineArray.map(t => t.entAcumulado),
+                            borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 3, tension: 0.3, fill: true,
+                            pointBackgroundColor: '#fff', pointBorderColor: '#10b981', pointRadius: 5
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    layout: { padding: { top: 30 } }, // Espaço pros números no topo
+                    plugins: {
+                        legend: { position: 'top', labels: { usePointStyle: true, font: {weight: 'bold'} } },
+                        // Configuração do Plugin que exibe os números em cima dos pontos do gráfico
+                        datalabels: {
+                            color: '#1e293b',
+                            align: 'top',
+                            offset: 6,
+                            font: { weight: 'bold', size: 11 },
+                            formatter: function(value) {
+                                return value > 0 ? value.toLocaleString('pt-BR') : ''; // Só mostra se for maior que 0
+                            }
+                        },
+                        tooltip: { mode: 'index', intersect: false }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        init();
+    </script>
+</body>
+</html>
