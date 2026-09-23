@@ -6,131 +6,189 @@
     <title><%= titulo %></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Plugin para mostrar os números dentro do gráfico -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* Estilização extra para a tabela executiva */
-        table th { background-color: #f1f5f9; text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; color: #475569; padding: 12px; border: 1px solid #e2e8f0; }
-        table td { padding: 12px; border: 1px solid #e2e8f0; font-size: 0.875rem; color: #1e293b; }
+        table th { background-color: #f1f5f9; text-transform: uppercase; font-size: 0.70rem; letter-spacing: 0.05em; color: #475569; padding: 10px; border: 1px solid #e2e8f0; }
+        table td { padding: 10px; border: 1px solid #e2e8f0; font-size: 0.85rem; color: #1e293b; }
         table tbody tr:hover { background-color: #f8fafc; }
+        .tab-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4); }
+        .tab-btn { background-color: #f8fafc; color: #64748b; border-color: #cbd5e1; }
+        .item-checkbox:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
     </style>
 </head>
 <body class="bg-slate-50 font-sans antialiased p-4 md:p-8">
 
-    <div class="max-w-7xl mx-auto space-y-6">
+    <div class="max-w-[1500px] mx-auto space-y-6">
         
-        <!-- Cabeçalho e Filtros -->
+        <!-- Cabeçalho & Navegação -->
         <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold text-slate-800"><i class="fa-solid fa-chart-line text-blue-600 mr-2"></i> <%= titulo %></h1>
-                <p class="text-slate-500 mt-1">Evolução Temporal e Detalhamento Financeiro</p>
+                <p class="text-slate-500 mt-1">Selecione o agrupamento e o período desejado</p>
             </div>
-            <div class="flex items-center space-x-4 mt-4 md:mt-0 bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div class="flex flex-col">
-                    <label class="text-xs font-semibold text-slate-500">Data Inicial</label>
-                    <input type="date" id="dataInicio" value="2026-08-15" class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm">
+            
+            <div class="flex items-center space-x-6 mt-6 md:mt-0">
+                <div class="flex space-x-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
+                    <button id="btnF1" onclick="setFundef(1)" class="tab-btn active px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 1</button>
+                    <button id="btnF2" onclick="setFundef(2)" class="tab-btn px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 2</button>
                 </div>
-                <div class="flex flex-col">
-                    <label class="text-xs font-semibold text-slate-500">Data Final</label>
-                    <input type="date" id="dataFim" class="px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-sm">
+
+                <div class="flex space-x-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-200 relative">
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Data Inicial</label>
+                        <input type="date" id="dataInicio" value="2026-08-15" class="px-2 py-1 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none">
+                    </div>
+                    <div class="flex flex-col">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Data Final</label>
+                        <input type="date" id="dataFim" class="px-2 py-1 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none">
+                    </div>
+                    <div class="flex flex-col border-l border-slate-300 pl-2 ml-1">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase">Visão</label>
+                        <select id="chartViewMode" onchange="updateAll(false)" class="px-2 py-1 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none font-semibold cursor-pointer">
+                            <option value="acumulado">📈 Acumulada</option>
+                            <option value="diario">📊 Por Dia</option>
+                        </select>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- KPIs Globais -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-blue-500">
-                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total Produzido</h3>
-                <p class="text-3xl font-bold text-slate-800 mt-2" id="kpiProdNum">0 un</p>
-                <div class="mt-2 text-xs text-slate-500 flex justify-between">
+        <p class="text-xs text-center text-slate-400 mb-2">Nota: Se um item na planilha for inserido sem data, ele será listado como "Sem Data" nos gráficos e somado normalmente aos totais.</p>
+        <h2 class="text-center text-xl font-bold text-slate-700 mt-4 mb-2">Visão Geral: <span id="lblFundefMain" class="text-blue-600">FUNDEF 1</span></h2>
+
+        <!-- KPIs GERAIS DO TOPO -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-orange-500">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Solicitado</h3>
+                <p class="text-3xl font-bold text-orange-700 mt-1" id="kpiSolNum">0</p>
+                <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
+                    <span>Orig: <b id="kpiSolOrig" class="text-slate-700">R$ 0</b></span>
+                    <span>Reaj: <b id="kpiSolReaj" class="text-orange-600">R$ 0</b></span>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-blue-500">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Produzido</h3>
+                <p class="text-3xl font-bold text-blue-700 mt-1" id="kpiProdNum">0</p>
+                <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
                     <span>Orig: <b id="kpiProdOrig" class="text-slate-700">R$ 0</b></span>
                     <span>Reaj: <b id="kpiProdReaj" class="text-blue-600">R$ 0</b></span>
                 </div>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-green-500">
-                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Total Entregue</h3>
-                <p class="text-3xl font-bold text-slate-800 mt-2" id="kpiEntNum">0 un</p>
-                <div class="mt-2 text-xs text-slate-500 flex justify-between">
+            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-green-500">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Entregue</h3>
+                <p class="text-3xl font-bold text-green-700 mt-1" id="kpiEntNum">0</p>
+                <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
                     <span>Orig: <b id="kpiEntOrig" class="text-slate-700">R$ 0</b></span>
                     <span>Reaj: <b id="kpiEntReaj" class="text-green-600">R$ 0</b></span>
                 </div>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border-l-4 border-l-purple-500">
-                <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wide">Em Estoque Constante</h3>
-                <p class="text-3xl font-bold text-slate-800 mt-2" id="kpiEstNum">0 un</p>
-                <div class="mt-2 text-xs text-slate-500 flex justify-between">
+            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-purple-500">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Em Estoque</h3>
+                <p class="text-3xl font-bold text-purple-700 mt-1" id="kpiEstNum">0</p>
+                <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
                     <span>Orig: <b id="kpiEstOrig" class="text-slate-700">R$ 0</b></span>
                     <span>Reaj: <b id="kpiEstReaj" class="text-purple-600">R$ 0</b></span>
                 </div>
             </div>
         </div>
 
-        <!-- Gráficos de Evolução no Tempo (Linha Acumulativa) -->
-        <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-bold text-slate-700 mb-1 text-center">FUNDEF 1 - Evolução Crescente por Data</h2>
-                <p class="text-xs text-center text-slate-400 mb-4">Volume acumulado de Produção e Entregas (Em Unidades)</p>
-                <div class="relative h-80"><canvas id="chartF1"></canvas></div>
+        <!-- 4 GRÁFICOS GERAIS -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-700 text-center mb-1">PRODUZIDO - Físico (Qtd)</h3>
+                <div class="relative h-64"><canvas id="chartGeralProdQtd"></canvas></div>
             </div>
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h2 class="text-lg font-bold text-slate-700 mb-1 text-center">FUNDEF 2 - Evolução Crescente por Data</h2>
-                <p class="text-xs text-center text-slate-400 mb-4">Volume acumulado de Produção e Entregas (Em Unidades)</p>
-                <div class="relative h-80"><canvas id="chartF2"></canvas></div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-700 text-center mb-1">PRODUZIDO - Financeiro (R$)</h3>
+                <div class="relative h-64"><canvas id="chartGeralProdVal"></canvas></div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-700 text-center mb-1">ENTREGUE - Físico (Qtd)</h3>
+                <div class="relative h-64"><canvas id="chartGeralEntQtd"></canvas></div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+                <h3 class="text-sm font-bold text-slate-700 text-center mb-1">ENTREGUE - Financeiro (R$)</h3>
+                <div class="relative h-64"><canvas id="chartGeralEntVal"></canvas></div>
             </div>
         </div>
 
-        <!-- Tabela Financeira e Detalhamento Individual -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="p-6 border-b border-slate-200 bg-slate-50">
-                <h2 class="text-xl font-bold text-slate-800">Detalhamento Individual e Financeiro</h2>
-                <p class="text-sm text-slate-500">Valores exatos por item consolidando o período selecionado.</p>
+        <!-- TABELA FINANCEIRA EXECUTIVA -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-8">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">Tabela de Valores Individuais - <span class="lblFundefTable text-blue-600">FUNDEF 1</span></h2>
             </div>
             <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse" id="tabelaDetalhes">
+                <table class="w-full text-left border-collapse min-w-[1400px]">
                     <thead>
                         <tr>
-                            <th rowspan="2" class="w-64 bg-slate-100">Produto / Item</th>
+                            <th rowspan="2" class="w-48 bg-slate-100">Produto / Item</th>
                             <th rowspan="2" class="text-center bg-slate-100 border-r-2 border-slate-300">Preço Unit.<br>(Orig / Reaj)</th>
-                            <th colspan="3" class="text-center bg-blue-50 text-blue-800 border-r-2 border-slate-300">PRODUZIDO</th>
-                            <th colspan="3" class="text-center bg-green-50 text-green-800 border-r-2 border-slate-300">ENTREGUE</th>
-                            <th colspan="3" class="text-center bg-purple-50 text-purple-800">EM ESTOQUE</th>
+                            
+                            <th colspan="3" class="text-center bg-orange-50 text-orange-800 border-r-2 border-slate-300">DEMANDA GERAL (TODO O PERÍODO)</th>
+                            
+                            <th colspan="3" id="thProd" class="text-center bg-blue-50 text-blue-800 border-r-2 border-slate-300">PRODUZIDO</th>
+                            <th colspan="3" id="thEnt" class="text-center bg-green-50 text-green-800 border-r-2 border-slate-300">ENTREGUE</th>
+                            <th colspan="3" id="thEst" class="text-center bg-purple-50 text-purple-800">EM ESTOQUE</th>
                         </tr>
                         <tr>
+                            <!-- Demanda Geral -->
+                            <th class="text-center bg-orange-50">Solicitado</th>
+                            <th class="text-center bg-emerald-50">Entregue Total</th>
+                            <th class="text-center bg-red-50 border-r-2 border-slate-300">Pendente</th>
+                            
                             <!-- Produzido -->
-                            <th class="text-center bg-blue-50">Qtd</th><th class="text-center bg-blue-50">Total Orig</th><th class="text-center bg-blue-50 border-r-2 border-slate-300">Total Reaj</th>
+                            <th class="text-center bg-blue-50">Qtd</th><th class="text-center bg-blue-50">Val. Orig</th><th class="text-center bg-blue-50 border-r-2 border-slate-300">Val. Reaj</th>
                             <!-- Entregue -->
-                            <th class="text-center bg-green-50">Qtd</th><th class="text-center bg-green-50">Total Orig</th><th class="text-center bg-green-50 border-r-2 border-slate-300">Total Reaj</th>
+                            <th class="text-center bg-green-50">Qtd</th><th class="text-center bg-green-50">Val. Orig</th><th class="text-center bg-green-50 border-r-2 border-slate-300">Val. Reaj</th>
                             <!-- Estoque -->
-                            <th class="text-center bg-purple-50">Qtd</th><th class="text-center bg-purple-50">Total Orig</th><th class="text-center bg-purple-50">Total Reaj</th>
+                            <th class="text-center bg-purple-50">Qtd</th><th class="text-center bg-purple-50">Val. Orig</th><th class="text-center bg-purple-50">Val. Reaj</th>
                         </tr>
                     </thead>
-                    <tbody id="tabelaBody">
-                        <!-- Preenchido via JS -->
-                    </tbody>
-                    <tfoot class="bg-slate-800 text-white font-bold" id="tabelaFoot">
-                        <!-- Totais via JS -->
-                    </tfoot>
+                    <tbody id="tabelaBody"></tbody>
+                    <!-- RODAPÉ CLARO PARA RESOLVER O BUG VISUAL -->
+                    <tfoot class="bg-slate-200 text-slate-800 font-bold" id="tabelaFoot"></tfoot>
                 </table>
+            </div>
+        </div>
+
+        <!-- ANÁLISE ESPECÍFICA (GRÁFICOS) -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 mt-8 mb-10">
+            <h2 class="text-lg font-bold text-slate-800 mb-2"><i class="fa-solid fa-magnifying-glass text-blue-500 mr-2"></i> Análise Específica de Produtos</h2>
+            <p class="text-sm text-slate-500 mb-4">Marque os produtos abaixo para gerar gráficos evolutivos isolados deles.</p>
+            
+            <div id="itemSelectors" class="flex flex-wrap gap-2 mb-6"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">PRODUZIDO (Qtd)</h4><div class="relative h-56"><canvas id="chartSpecProdQtd"></canvas></div></div>
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">PRODUZIDO (R$)</h4><div class="relative h-56"><canvas id="chartSpecProdVal"></canvas></div></div>
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">ENTREGUE (Qtd)</h4><div class="relative h-56"><canvas id="chartSpecEntQtd"></canvas></div></div>
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">ENTREGUE (R$)</h4><div class="relative h-56"><canvas id="chartSpecEntVal"></canvas></div></div>
             </div>
         </div>
 
     </div>
 
     <script>
-        // Registra o plugin de DataLabels no Chart.js
         Chart.register(ChartDataLabels);
-
+        
         let rawData = [];
+        let activeFundef = 1;
         let charts = {};
-
+        
         document.getElementById('dataFim').value = new Date().toISOString().split('T')[0];
         const formatMoney = (val) => val.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
         function parseBRDate(dateStr) {
-            if(!dateStr) return 0;
-            const p = dateStr.split('/');
-            if(p.length === 3) return new Date(p[2], p[1]-1, p[0]).getTime();
+            if(!dateStr || dateStr === 'S/D') return 0;
+            let str = String(dateStr).trim().split(' ')[0];
+            if(str.includes('/')) {
+                const p = str.split('/');
+                if(p.length === 3) return p[0].length === 4 ? new Date(p[0], p[1]-1, p[2]).getTime() : new Date(p[2], p[1]-1, p[0]).getTime();
+            } else if(str.includes('-')) {
+                const p = str.split('-');
+                if(p.length === 3) return p[0].length === 4 ? new Date(p[0], p[1]-1, p[2]).getTime() : new Date(p[2], p[1]-1, p[0]).getTime();
+            }
             return 0; 
         }
 
@@ -139,208 +197,277 @@
                 const response = await fetch('/api/dados');
                 rawData = await response.json();
                 
-                document.getElementById('dataInicio').addEventListener('change', updateDash);
-                document.getElementById('dataFim').addEventListener('change', updateDash);
+                document.getElementById('dataInicio').addEventListener('change', updateAll);
+                document.getElementById('dataFim').addEventListener('change', updateAll);
                 
-                updateDash();
+                updateAll(true);
             } catch (error) {
                 console.error(error);
                 alert("Erro ao ler dados da planilha.");
             }
         }
 
-        function updateDash() {
-            if(!rawData.length) return;
+        window.setFundef = function(fNum) {
+            activeFundef = fNum;
+            document.getElementById('btnF1').className = fNum === 1 ? 'tab-btn active px-6 py-2 rounded-md font-bold text-sm transition-all border' : 'tab-btn px-6 py-2 rounded-md font-bold text-sm transition-all border';
+            document.getElementById('btnF2').className = fNum === 2 ? 'tab-btn active px-6 py-2 rounded-md font-bold text-sm transition-all border' : 'tab-btn px-6 py-2 rounded-md font-bold text-sm transition-all border';
+            
+            document.getElementById('lblFundefMain').innerText = `FUNDEF ${fNum}`;
+            document.querySelector('.lblFundefTable').innerText = `FUNDEF ${fNum}`;
+            
+            updateAll(true);
+        };
 
+        function updateAll(rebuildSelectors = false) {
+            if(!rawData.length) return;
             const tsStart = new Date(document.getElementById('dataInicio').value + "T00:00:00").getTime();
             const tsEnd = new Date(document.getElementById('dataFim').value + "T23:59:59").getTime();
+            const fData = rawData.filter(d => d.fundef === activeFundef);
 
-            // 1. PROCESSAR DADOS INDIVIDUAIS PARA TABELA E KPIS
-            let tblData = rawData.map(d => {
-                let pNum = 0, eNum = 0;
-                
-                d.eventos_producao.forEach(e => {
-                    const ts = parseBRDate(e.data);
-                    if(ts >= tsStart && ts <= tsEnd) pNum += e.qtd;
+            updateTableAndKPIs(fData, tsStart, tsEnd);
+            const timelineGeral = buildTimeline(fData, tsStart, tsEnd);
+            render4Charts(timelineGeral, 'Geral');
+
+            if (rebuildSelectors) {
+                const container = document.getElementById('itemSelectors');
+                container.innerHTML = '';
+                fData.forEach((d, i) => {
+                    const chk = i === 0 ? 'checked' : '';
+                    container.innerHTML += `
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="${d.matchKey}" ${chk} class="item-checkbox hidden" onchange="updateSpecCharts()">
+                            <span class="px-3 py-1.5 rounded-full border border-slate-300 text-xs font-semibold text-slate-600 transition-colors inline-block shadow-sm select-none">${d.item}</span>
+                        </label>
+                    `;
                 });
-
-                d.eventos_entrega.forEach(e => {
-                    const ts = parseBRDate(e.data);
-                    if(ts >= tsStart && ts <= tsEnd) eNum += e.qtd;
-                });
-
-                return {
-                    fundef: d.fundef,
-                    item: d.item,
-                    preco_orig: d.preco_orig,
-                    preco_reaj: d.preco_reaj,
-                    prod_n: pNum, ent_n: eNum, est_n: d.estoque_total,
-                    prod_vOrig: pNum * d.preco_orig, prod_vReaj: pNum * d.preco_reaj,
-                    ent_vOrig: eNum * d.preco_orig, ent_vReaj: eNum * d.preco_reaj,
-                    est_vOrig: d.estoque_total * d.preco_orig, est_vReaj: d.estoque_total * d.preco_reaj
-                };
-            });
-
-            // Atualiza KPIs Topo
-            const sums = tblData.reduce((acc, curr) => {
-                acc.pN += curr.prod_n; acc.pO += curr.prod_vOrig; acc.pR += curr.prod_vReaj;
-                acc.eN += curr.ent_n; acc.eO += curr.ent_vOrig; acc.eR += curr.ent_vReaj;
-                acc.sN += curr.est_n; acc.sO += curr.est_vOrig; acc.sR += curr.est_vReaj;
-                return acc;
-            }, {pN:0, pO:0, pR:0, eN:0, eO:0, eR:0, sN:0, sO:0, sR:0});
-
-            document.getElementById('kpiProdNum').innerText = sums.pN.toLocaleString('pt-BR');
-            document.getElementById('kpiProdOrig').innerText = formatMoney(sums.pO);
-            document.getElementById('kpiProdReaj').innerText = formatMoney(sums.pR);
-            
-            document.getElementById('kpiEntNum').innerText = sums.eN.toLocaleString('pt-BR');
-            document.getElementById('kpiEntOrig').innerText = formatMoney(sums.eO);
-            document.getElementById('kpiEntReaj').innerText = formatMoney(sums.eR);
-            
-            document.getElementById('kpiEstNum').innerText = sums.sN.toLocaleString('pt-BR');
-            document.getElementById('kpiEstOrig').innerText = formatMoney(sums.sO);
-            document.getElementById('kpiEstReaj').innerText = formatMoney(sums.sR);
-
-            // Atualiza Tabela Individual
-            preencherTabela(tblData, sums);
-
-            // 2. PROCESSAR DADOS PARA O GRÁFICO DE LINHA DO TEMPO CRESCENTE
-            renderTimelineChart('chartF1', rawData.filter(d => d.fundef === 1), tsStart, tsEnd);
-            renderTimelineChart('chartF2', rawData.filter(d => d.fundef === 2), tsStart, tsEnd);
+            }
+            updateSpecCharts();
         }
 
-        function preencherTabela(data, totals) {
-            const tbody = document.getElementById('tabelaBody');
-            tbody.innerHTML = '';
+        window.updateSpecCharts = function() {
+            const selectedKeys = Array.from(document.querySelectorAll('.item-checkbox:checked')).map(cb => cb.value);
+            const tsStart = new Date(document.getElementById('dataInicio').value + "T00:00:00").getTime();
+            const tsEnd = new Date(document.getElementById('dataFim').value + "T23:59:59").getTime();
             
-            data.forEach(d => {
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="font-semibold text-slate-700">F${d.fundef} - ${d.item}</td>
-                        <td class="text-center border-r-2 border-slate-300"><span class="text-slate-500">${formatMoney(d.preco_orig)}</span><br><b class="text-slate-800">${formatMoney(d.preco_reaj)}</b></td>
-                        
-                        <td class="text-center font-bold text-blue-700 bg-blue-50/30">${d.prod_n.toLocaleString('pt-BR')}</td>
-                        <td class="text-center text-slate-500 bg-blue-50/30">${formatMoney(d.prod_vOrig)}</td>
-                        <td class="text-center text-blue-600 bg-blue-50/30 font-semibold border-r-2 border-slate-300">${formatMoney(d.prod_vReaj)}</td>
-                        
-                        <td class="text-center font-bold text-green-700 bg-green-50/30">${d.ent_n.toLocaleString('pt-BR')}</td>
-                        <td class="text-center text-slate-500 bg-green-50/30">${formatMoney(d.ent_vOrig)}</td>
-                        <td class="text-center text-green-600 bg-green-50/30 font-semibold border-r-2 border-slate-300">${formatMoney(d.ent_vReaj)}</td>
-                        
-                        <td class="text-center font-bold text-purple-700 bg-purple-50/30">${d.est_n.toLocaleString('pt-BR')}</td>
-                        <td class="text-center text-slate-500 bg-purple-50/30">${formatMoney(d.est_vOrig)}</td>
-                        <td class="text-center text-purple-600 bg-purple-50/30 font-semibold">${formatMoney(d.est_vReaj)}</td>
-                    </tr>
-                `;
-            });
+            const specData = rawData.filter(d => selectedKeys.includes(d.matchKey));
+            const timelineSpec = buildTimeline(specData, tsStart, tsEnd);
+            render4Charts(timelineSpec, 'Spec');
+        };
 
-            // Rodapé com Totais
-            document.getElementById('tabelaFoot').innerHTML = `
-                <tr>
-                    <td colspan="2" class="text-right p-4 border-r-2 border-slate-600">TOTAIS GERAIS NO PERÍODO:</td>
-                    <td class="text-center bg-blue-900/40">${totals.pN.toLocaleString('pt-BR')}</td>
-                    <td class="text-center bg-blue-900/40 font-normal">${formatMoney(totals.pO)}</td>
-                    <td class="text-center bg-blue-900/40 border-r-2 border-slate-600">${formatMoney(totals.pR)}</td>
-                    
-                    <td class="text-center bg-green-900/40">${totals.eN.toLocaleString('pt-BR')}</td>
-                    <td class="text-center bg-green-900/40 font-normal">${formatMoney(totals.eO)}</td>
-                    <td class="text-center bg-green-900/40 border-r-2 border-slate-600">${formatMoney(totals.eR)}</td>
-                    
-                    <td class="text-center bg-purple-900/40">${totals.sN.toLocaleString('pt-BR')}</td>
-                    <td class="text-center bg-purple-900/40 font-normal">${formatMoney(totals.sO)}</td>
-                    <td class="text-center bg-purple-900/40">${formatMoney(totals.sR)}</td>
-                </tr>
-            `;
-        }
-
-        // Função para gerar o Gráfico de Evolução (Linha do Tempo Cumulativa)
-        function renderTimelineChart(canvasId, fundefData, tsStart, tsEnd) {
-            // Extrai todas as datas únicas e agrupa os valores do FUNDEF
-            const timelineMap = {}; // { 'YYYY-MM-DD': { prod: 0, ent: 0 } }
-            
-            fundefData.forEach(item => {
+        function buildTimeline(dataArr, tsStart, tsEnd) {
+            const map = {};
+            dataArr.forEach(item => {
                 item.eventos_producao.forEach(e => {
                     const ts = parseBRDate(e.data);
-                    if(ts >= tsStart && ts <= tsEnd) {
-                        const dateBR = e.data || 'S/D';
-                        if(!timelineMap[dateBR]) timelineMap[dateBR] = { ts, prod: 0, ent: 0 };
-                        timelineMap[dateBR].prod += e.qtd;
+                    if (ts === 0 || (ts >= tsStart && ts <= tsEnd)) {
+                        const dStr = (ts === 0) ? 'Sem Data' : e.data;
+                        const effectiveTs = (ts === 0) ? tsStart - 1 : ts; 
+                        if (!map[dStr]) map[dStr] = { ts: effectiveTs, pQtd: 0, pOrig: 0, pReaj: 0, eQtd: 0, eOrig: 0, eReaj: 0 };
+                        map[dStr].pQtd += e.qtd; map[dStr].pOrig += (e.qtd * item.preco_orig); map[dStr].pReaj += (e.qtd * item.preco_reaj);
                     }
                 });
                 item.eventos_entrega.forEach(e => {
                     const ts = parseBRDate(e.data);
-                    if(ts >= tsStart && ts <= tsEnd) {
-                        const dateBR = e.data || 'S/D';
-                        if(!timelineMap[dateBR]) timelineMap[dateBR] = { ts, prod: 0, ent: 0 };
-                        timelineMap[dateBR].ent += e.qtd;
+                    if (ts === 0 || (ts >= tsStart && ts <= tsEnd)) {
+                        const dStr = (ts === 0) ? 'Sem Data' : e.data;
+                        const effectiveTs = (ts === 0) ? tsStart - 1 : ts; 
+                        if (!map[dStr]) map[dStr] = { ts: effectiveTs, pQtd: 0, pOrig: 0, pReaj: 0, eQtd: 0, eOrig: 0, eReaj: 0 };
+                        map[dStr].eQtd += e.qtd; map[dStr].eOrig += (e.qtd * item.preco_orig); map[dStr].eReaj += (e.qtd * item.preco_reaj);
                     }
                 });
             });
 
-            // Converte pra array e ordena por data crescente
-            let timelineArray = Object.keys(timelineMap).map(k => ({ date: k, ...timelineMap[k] }));
-            timelineArray.sort((a, b) => a.ts - b.ts);
-
-            // Calcula o Acumulado (Escadinha Crescente)
-            let currentProd = 0, currentEnt = 0;
-            timelineArray = timelineArray.map(t => {
-                currentProd += t.prod;
-                currentEnt += t.ent;
-                return { date: t.date.substring(0,5), prodAcumulado: currentProd, entAcumulado: currentEnt }; // Pega só DD/MM pro eixo X
+            let arr = Object.values(map).sort((a,b) => a.ts - b.ts);
+            let acc = { pQ:0, pO:0, pR:0, eQ:0, eO:0, eR:0 };
+            
+            let timeline = arr.map(t => {
+                acc.pQ += t.pQtd; acc.pO += t.pOrig; acc.pR += t.pReaj;
+                acc.eQ += t.eQtd; acc.eO += t.eOrig; acc.eR += t.eReaj;
+                return {
+                    date: t.ts < tsStart ? 'Sem Data' : new Date(t.ts).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}),
+                    pQtdDaily: t.pQtd, pOrigDaily: t.pOrig, pReajDaily: t.pReaj, eQtdDaily: t.eQtd, eOrigDaily: t.eOrig, eReajDaily: t.eReaj,
+                    pQtdAcum: acc.pQ, pOrigAcum: acc.pO, pReajAcum: acc.pR, eQtdAcum: acc.eQ, eOrigAcum: acc.eO, eReajAcum: acc.eR
+                };
             });
+            return timeline.length ? timeline : [{ date: 'Sem Dados', pQtdDaily:0, pQtdAcum:0, pOrigDaily:0, pOrigAcum:0, pReajDaily:0, pReajAcum:0, eQtdDaily:0, eQtdAcum:0, eOrigDaily:0, eOrigAcum:0, eReajDaily:0, eReajAcum:0 }];
+        }
 
-            // Se não tiver dados, cria array zerado pra não bugar o chart
-            if(timelineArray.length === 0) {
-                timelineArray = [{ date: 'Sem Dados', prodAcumulado: 0, entAcumulado: 0 }];
-            }
+        function render4Charts(timeline, prefix) {
+            const labels = timeline.map(t => t.date);
+            const isAcum = document.getElementById('chartViewMode').value === 'acumulado';
+            const suffix = isAcum ? '(Acumulado)' : '(Por Dia)';
 
-            const ctx = document.getElementById(canvasId).getContext('2d');
-            if(charts[canvasId]) charts[canvasId].destroy();
+            drawLineChart(`chart${prefix}ProdQtd`, labels, [
+                { label: `Qtd Produzida ${suffix}`, data: timeline.map(t => isAcum ? t.pQtdAcum : t.pQtdDaily), borderColor: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' }
+            ], 'num', isAcum);
+            drawLineChart(`chart${prefix}ProdVal`, labels, [
+                { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.pReajAcum : t.pReajDaily), borderColor: '#4f46e5', bg: 'transparent' },
+                { label: `Val. Original`, data: timeline.map(t => isAcum ? t.pOrigAcum : t.pOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
+            ], 'val', isAcum);
+            drawLineChart(`chart${prefix}EntQtd`, labels, [
+                { label: `Qtd Entregue ${suffix}`, data: timeline.map(t => isAcum ? t.eQtdAcum : t.eQtdDaily), borderColor: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }
+            ], 'num', isAcum);
+            drawLineChart(`chart${prefix}EntVal`, labels, [
+                { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.eReajAcum : t.eReajDaily), borderColor: '#059669', bg: 'transparent' },
+                { label: `Val. Original`, data: timeline.map(t => isAcum ? t.eOrigAcum : t.eOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
+            ], 'val', isAcum);
+        }
 
-            charts[canvasId] = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: timelineArray.map(t => t.date),
-                    datasets: [
-                        {
-                            label: 'Produção Acumulada',
-                            data: timelineArray.map(t => t.prodAcumulado),
-                            borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                            borderWidth: 3, tension: 0.3, fill: true,
-                            pointBackgroundColor: '#fff', pointBorderColor: '#3b82f6', pointRadius: 5
-                        },
-                        {
-                            label: 'Entrega Acumulada',
-                            data: timelineArray.map(t => t.entAcumulado),
-                            borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)',
-                            borderWidth: 3, tension: 0.3, fill: true,
-                            pointBackgroundColor: '#fff', pointBorderColor: '#10b981', pointRadius: 5
-                        }
-                    ]
-                },
+        function drawLineChart(id, labels, datasetsConfig, type, isAcum) {
+            const ctx = document.getElementById(id).getContext('2d');
+            if(charts[id]) charts[id].destroy();
+
+            const chartType = isAcum ? 'line' : 'bar';
+            const datasets = datasetsConfig.map(cfg => ({
+                type: chartType, label: cfg.label, data: cfg.data, borderColor: cfg.borderColor,
+                backgroundColor: chartType === 'bar' ? cfg.borderColor : cfg.bg, 
+                borderWidth: chartType === 'bar' ? 0 : 2, fill: cfg.bg !== 'transparent',
+                tension: 0.2, pointRadius: 3, borderDash: cfg.dash || [], borderRadius: chartType === 'bar' ? 4 : 0
+            }));
+
+            charts[id] = new Chart(ctx, {
+                type: chartType,
+                data: { labels, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    layout: { padding: { top: 30 } }, // Espaço pros números no topo
-                    plugins: {
-                        legend: { position: 'top', labels: { usePointStyle: true, font: {weight: 'bold'} } },
-                        // Configuração do Plugin que exibe os números em cima dos pontos do gráfico
+                    plugins: { 
+                        legend: { position: 'top', labels: {boxWidth: 10, font: {size: 10}} },
                         datalabels: {
-                            color: '#1e293b',
-                            align: 'top',
-                            offset: 6,
-                            font: { weight: 'bold', size: 11 },
-                            formatter: function(value) {
-                                return value > 0 ? value.toLocaleString('pt-BR') : ''; // Só mostra se for maior que 0
-                            }
-                        },
-                        tooltip: { mode: 'index', intersect: false }
+                            align: 'top', font: {size: 9, weight: 'bold'}, color: '#475569',
+                            formatter: (v) => v > 0 ? (type === 'val' ? 'R$'+(v/1000).toFixed(0)+'k' : v) : ''
+                        }
                     },
-                    scales: {
-                        y: { beginAtZero: true, grid: { borderDash: [4, 4] } },
-                        x: { grid: { display: false } }
+                    scales: { 
+                        x: { ticks: { font: {size: 9} } },
+                        y: { ticks: { font: {size: 9}, callback: (v) => type === 'val' ? 'R$ '+(v/1000).toFixed(0)+'k' : v } }
                     }
                 }
             });
+        }
+
+        // Tabela Financeira com as Novas Lógicas e Cores Claras no Rodapé
+        function updateTableAndKPIs(fData, tsStart, tsEnd) {
+            const dIn = document.getElementById('dataInicio').value.split('-').reverse().join('/');
+            const dOut = document.getElementById('dataFim').value.split('-').reverse().join('/');
+            document.getElementById('thProd').innerText = `PRODUZIDO (${dIn} a ${dOut})`;
+            document.getElementById('thEnt').innerText = `ENTREGUE (${dIn} a ${dOut})`;
+            document.getElementById('thEst').innerText = `EM ESTOQUE (Até ${dOut})`;
+
+            let sums = { sQ:0, sO:0, sR:0, eTot:0, eTotO:0, eTotR:0, fQ:0, fO:0, fR:0, pQ:0, pO:0, pR:0, eQ:0, eO:0, eR:0, estQ:0, estO:0, estR:0 };
+            const tbody = document.getElementById('tabelaBody');
+            tbody.innerHTML = '';
+
+            fData.forEach(d => {
+                let pQtd = 0, eQtd = 0, eQtdTotal = 0;
+                
+                d.eventos_producao.forEach(e => { 
+                    const ts = parseBRDate(e.data);
+                    if(ts === 0 || (ts >= tsStart && ts <= tsEnd)) pQtd += e.qtd; 
+                });
+                
+                d.eventos_entrega.forEach(e => { 
+                    eQtdTotal += e.qtd; 
+                    const ts = parseBRDate(e.data);
+                    if(ts === 0 || (ts >= tsStart && ts <= tsEnd)) eQtd += e.qtd; 
+                });
+
+                let faltante = d.qtd_solicitada - eQtdTotal;
+                if(faltante < 0) faltante = 0;
+
+                const rowVals = {
+                    sQ: d.qtd_solicitada, sO: d.qtd_solicitada * d.preco_orig, sR: d.qtd_solicitada * d.preco_reaj,
+                    eTot: eQtdTotal, eTotO: eQtdTotal * d.preco_orig, eTotR: eQtdTotal * d.preco_reaj,
+                    fQ: faltante, fO: faltante * d.preco_orig, fR: faltante * d.preco_reaj,
+                    pQ: pQtd, pO: pQtd * d.preco_orig, pR: pQtd * d.preco_reaj,
+                    eQ: eQtd, eO: eQtd * d.preco_orig, eR: eQtd * d.preco_reaj,
+                    estQ: d.estoque_total, estO: d.estoque_total * d.preco_orig, estR: d.estoque_total * d.preco_reaj
+                };
+
+                ['sQ','sO','sR','eTot','eTotO','eTotR','fQ','fO','fR','pQ','pO','pR','eQ','eO','eR','estQ','estO','estR'].forEach(k => sums[k] += rowVals[k]);
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td class="font-semibold text-slate-700 text-xs">${d.item}</td>
+                        <td class="text-center border-r-2 border-slate-300 text-xs"><span class="text-slate-500">${formatMoney(d.preco_orig)}</span><br><b class="text-slate-800">${formatMoney(d.preco_reaj)}</b></td>
+                        
+                        <td class="text-center bg-orange-50/50">
+                            <div class="font-bold text-orange-700 text-sm">${rowVals.sQ.toLocaleString('pt-BR')} un</div>
+                            <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.sO)}</div>
+                            <div class="text-[10px] text-orange-600 font-semibold">Reaj: ${formatMoney(rowVals.sR)}</div>
+                        </td>
+                        <td class="text-center bg-emerald-50/50">
+                            <div class="font-bold text-emerald-700 text-sm">${rowVals.eTot.toLocaleString('pt-BR')} un</div>
+                            <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.eTotO)}</div>
+                            <div class="text-[10px] text-emerald-600 font-semibold">Reaj: ${formatMoney(rowVals.eTotR)}</div>
+                        </td>
+                        <td class="text-center bg-red-50/50 border-r-2 border-slate-300">
+                            <div class="font-bold text-red-600 text-sm">${rowVals.fQ.toLocaleString('pt-BR')} un</div>
+                            <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.fO)}</div>
+                            <div class="text-[10px] text-red-500 font-semibold">Reaj: ${formatMoney(rowVals.fR)}</div>
+                        </td>
+
+                        <td class="text-center font-bold text-blue-700 bg-blue-50/30">${rowVals.pQ.toLocaleString('pt-BR')}</td>
+                        <td class="text-center text-slate-500 bg-blue-50/30 text-[11px]">${formatMoney(rowVals.pO)}</td>
+                        <td class="text-center text-blue-600 bg-blue-50/30 font-semibold border-r-2 border-slate-300 text-[11px]">${formatMoney(rowVals.pR)}</td>
+                        
+                        <td class="text-center font-bold text-green-700 bg-green-50/30">${rowVals.eQ.toLocaleString('pt-BR')}</td>
+                        <td class="text-center text-slate-500 bg-green-50/30 text-[11px]">${formatMoney(rowVals.eO)}</td>
+                        <td class="text-center text-green-600 bg-green-50/30 font-semibold border-r-2 border-slate-300 text-[11px]">${formatMoney(rowVals.eR)}</td>
+                        
+                        <td class="text-center font-bold text-purple-700 bg-purple-50/30">${rowVals.estQ.toLocaleString('pt-BR')}</td>
+                        <td class="text-center text-slate-500 bg-purple-50/30 text-[11px]">${formatMoney(rowVals.estO)}</td>
+                        <td class="text-center text-purple-600 bg-purple-50/30 font-semibold text-[11px]">${formatMoney(rowVals.estR)}</td>
+                    </tr>
+                `;
+            });
+
+            // Rodapé Claro
+            document.getElementById('tabelaFoot').innerHTML = `
+                <tr>
+                    <td colspan="2" class="text-right p-3 border-r-2 border-slate-300">TOTAIS (FUNDEF ${activeFundef}):</td>
+                    
+                    <td class="text-center bg-orange-200">
+                        <div class="text-sm text-slate-800">${sums.sQ.toLocaleString('pt-BR')} un</div>
+                        <div class="text-[10px] text-slate-600 font-normal">O: ${formatMoney(sums.sO)}</div>
+                        <div class="text-[10px] text-orange-800">R: ${formatMoney(sums.sR)}</div>
+                    </td>
+                    <td class="text-center bg-emerald-200">
+                        <div class="text-sm text-slate-800">${sums.eTot.toLocaleString('pt-BR')} un</div>
+                        <div class="text-[10px] text-slate-600 font-normal">O: ${formatMoney(sums.eTotO)}</div>
+                        <div class="text-[10px] text-emerald-800">R: ${formatMoney(sums.eTotR)}</div>
+                    </td>
+                    <td class="text-center bg-red-200 border-r-2 border-slate-300">
+                        <div class="text-sm text-slate-800">${sums.fQ.toLocaleString('pt-BR')} un</div>
+                        <div class="text-[10px] text-slate-600 font-normal">O: ${formatMoney(sums.fO)}</div>
+                        <div class="text-[10px] text-red-800">R: ${formatMoney(sums.fR)}</div>
+                    </td>
+
+                    <td class="text-center bg-blue-200 text-sm text-slate-800">${sums.pQ.toLocaleString('pt-BR')}</td>
+                    <td class="text-center bg-blue-200 font-normal text-[10px] text-slate-600">${formatMoney(sums.pO)}</td>
+                    <td class="text-center bg-blue-200 border-r-2 border-slate-300 text-[10px] text-blue-800">${formatMoney(sums.pR)}</td>
+                    
+                    <td class="text-center bg-green-200 text-sm text-slate-800">${sums.eQ.toLocaleString('pt-BR')}</td>
+                    <td class="text-center bg-green-200 font-normal text-[10px] text-slate-600">${formatMoney(sums.eO)}</td>
+                    <td class="text-center bg-green-200 border-r-2 border-slate-300 text-[10px] text-green-800">${formatMoney(sums.eR)}</td>
+                    
+                    <td class="text-center bg-purple-200 text-sm text-slate-800">${sums.estQ.toLocaleString('pt-BR')}</td>
+                    <td class="text-center bg-purple-200 font-normal text-[10px] text-slate-600">${formatMoney(sums.estO)}</td>
+                    <td class="text-center bg-purple-200 text-[10px] text-purple-800">${formatMoney(sums.estR)}</td>
+                </tr>
+            `;
+
+            document.getElementById('kpiSolNum').innerText = sums.sQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiSolOrig').innerText = formatMoney(sums.sO);
+            document.getElementById('kpiSolReaj').innerText = formatMoney(sums.sR);
+            document.getElementById('kpiProdNum').innerText = sums.pQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiProdOrig').innerText = formatMoney(sums.pO);
+            document.getElementById('kpiProdReaj').innerText = formatMoney(sums.pR);
+            document.getElementById('kpiEntNum').innerText = sums.eQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiEntOrig').innerText = formatMoney(sums.eO);
+            document.getElementById('kpiEntReaj').innerText = formatMoney(sums.eR);
+            document.getElementById('kpiEstNum').innerText = sums.estQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiEstOrig').innerText = formatMoney(sums.estO);
+            document.getElementById('kpiEstReaj').innerText = formatMoney(sums.estR);
         }
 
         init();
