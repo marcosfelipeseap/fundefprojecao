@@ -15,6 +15,7 @@
         .tab-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4); }
         .tab-btn { background-color: #f8fafc; color: #64748b; border-color: #cbd5e1; }
         .item-checkbox:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
+        .item-checkbox-geral:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
         /* Oculta setinhas chatas do input number */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -24,45 +25,17 @@
 
     <div class="max-w-[1500px] mx-auto space-y-6">
         
-        <!-- Cabeçalho & Navegação -->
+        <!-- Cabeçalho & Navegação (Apenas Título e Abas FUNDEF) -->
         <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold text-slate-800"><i class="fa-solid fa-chart-line text-blue-600 mr-2"></i> <%= titulo %></h1>
                 <p class="text-slate-500 mt-1">Selecione o agrupamento e o período desejado</p>
             </div>
             
-            <div class="flex items-center space-x-6 mt-6 md:mt-0 flex-wrap gap-y-4 justify-end">
+            <div class="flex items-center space-x-6 mt-6 md:mt-0">
                 <div class="flex space-x-2 bg-slate-100 p-1 rounded-lg border border-slate-200">
                     <button id="btnF1" onclick="setFundef(1)" class="tab-btn active px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 1</button>
                     <button id="btnF2" onclick="setFundef(2)" class="tab-btn px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 2</button>
-                </div>
-
-                <div class="flex space-x-2 items-center bg-slate-50 p-2 rounded-lg border border-slate-200 relative">
-                    <div class="flex flex-col">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase">Data Inicial</label>
-                        <input type="date" id="dataInicio" value="2026-08-15" class="px-2 py-1 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none">
-                    </div>
-                    <div class="flex flex-col">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase">Data Final</label>
-                        <input type="date" id="dataFim" class="px-2 py-1 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none">
-                    </div>
-                    <div class="flex flex-col border-l border-slate-300 pl-2 ml-1">
-                        <label class="text-[10px] font-bold text-slate-400 uppercase">Visão</label>
-                        <select id="chartViewMode" onchange="updateAll(false)" class="px-2 py-1 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none font-semibold cursor-pointer">
-                            <option value="acumulado">📈 Acumulada</option>
-                            <option value="diario">📊 Por Dia</option>
-                        </select>
-                    </div>
-
-                    <!-- BOTÕES DE EDIÇÃO TEMPORÁRIA -->
-                    <div class="flex items-center space-x-1 border-l border-slate-300 pl-2 ml-1 h-full">
-                        <button id="btnEdit" onclick="toggleEditMode()" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm">
-                            ✏️ Editar Valores
-                        </button>
-                        <button id="btnReset" onclick="resetData()" class="hidden px-3 py-1.5 bg-red-50 border border-red-200 rounded text-sm text-red-600 font-bold hover:bg-red-100 transition-colors shadow-sm" title="Descartar edições e voltar ao original">
-                            🔄 Resetar
-                        </button>
-                    </div>
                 </div>
             </div>
         </div>
@@ -106,6 +79,50 @@
             </div>
         </div>
 
+        <!-- BARRA DE FILTROS E CONTROLES (Movida para abaixo dos cards) -->
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-4 flex-wrap gap-y-3">
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Data Inicial</label>
+                    <input type="date" id="dataInicio" value="2026-08-15" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Data Final</label>
+                    <input type="date" id="dataFim" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none">
+                </div>
+                <div class="flex flex-col border-l border-slate-300 pl-4">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Visão do Gráfico</label>
+                    <select id="chartViewMode" onchange="updateAll(false)" class="px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 outline-none font-semibold cursor-pointer">
+                        <option value="acumulado">📈 Acumulada</option>
+                        <option value="diario">📊 Por Dia</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- BOTÕES DE EDIÇÃO TEMPORÁRIA -->
+            <div class="flex items-center space-x-2">
+                <button id="btnEdit" onclick="toggleEditMode()" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm">
+                    ✏️ Editar Valores
+                </button>
+                <button id="btnReset" onclick="resetData()" class="hidden px-4 py-2 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 font-bold hover:bg-red-100 transition-colors shadow-sm" title="Descartar edições e voltar ao original">
+                    🔄 Resetar
+                </button>
+            </div>
+        </div>
+
+        <!-- SELEÇÃO DE PRODUTOS PARA OS GRÁFICOS GERAIS E RESUMO -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-slate-700"><i class="fa-solid fa-filter text-blue-600 mr-2"></i> Produtos Incluídos nos Gráficos e Totais do Período</h3>
+                <div class="space-x-2">
+                    <button onclick="toggleAllGeral(true)" class="text-xs font-semibold text-blue-600 hover:underline">Marcar Todos</button>
+                    <span class="text-slate-300">|</span>
+                    <button onclick="toggleAllGeral(false)" class="text-xs font-semibold text-slate-500 hover:underline">Desmarcar Todos</button>
+                </div>
+            </div>
+            <div id="itemSelectorsGeral" class="flex flex-wrap gap-2"></div>
+        </div>
+
         <!-- 4 GRÁFICOS GERAIS -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
@@ -128,7 +145,7 @@
 
         <!-- KPIs DO PERÍODO SELECIONADO (Entre os gráficos e a tabela) -->
         <div class="mt-6 bg-slate-100 p-4 rounded-2xl border border-slate-200">
-            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 text-center">Resumo do Período Selecionado (<span id="lblPeriodoKpi">--</span>)</h3>
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 text-center">Resumo do Período Selecionado (<span id="lblPeriodoKpi">--</span>) para os Produtos Selecionados</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-blue-500">
                     <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Produzido no Período</h3>
@@ -250,12 +267,12 @@
             
             if (isEditMode) {
                 btnEdit.innerHTML = '✅ Concluir Edição';
-                btnEdit.className = "px-3 py-1.5 bg-blue-600 border border-blue-700 rounded text-sm text-white font-bold hover:bg-blue-700 transition-colors shadow-md";
+                btnEdit.className = "px-4 py-2 bg-blue-600 border border-blue-700 rounded-lg text-sm text-white font-bold hover:bg-blue-700 transition-colors shadow-md";
                 document.getElementById('lblSimulacao').classList.remove('hidden');
                 document.getElementById('tabelaHeaderUI').classList.replace('bg-slate-50', 'bg-blue-50');
             } else {
                 btnEdit.innerHTML = '✏️ Editar Valores';
-                btnEdit.className = "px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm";
+                btnEdit.className = "px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm";
                 document.getElementById('lblSimulacao').classList.add('hidden');
                 document.getElementById('tabelaHeaderUI').classList.replace('bg-blue-50', 'bg-slate-50');
             }
@@ -285,7 +302,7 @@
             
             const btnEdit = document.getElementById('btnEdit');
             btnEdit.innerHTML = '✏️ Editar Valores';
-            btnEdit.className = "px-3 py-1.5 bg-white border border-slate-300 rounded text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm";
+            btnEdit.className = "px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm text-slate-700 font-bold hover:bg-slate-100 transition-colors shadow-sm";
             document.getElementById('lblSimulacao').classList.add('hidden');
             document.getElementById('tabelaHeaderUI').classList.replace('bg-blue-50', 'bg-slate-50');
             document.getElementById('btnReset').classList.add('hidden');
@@ -304,22 +321,38 @@
             updateAll(true);
         };
 
+        window.toggleAllGeral = function(check) {
+            document.querySelectorAll('.item-checkbox-geral').forEach(cb => {
+                cb.checked = check;
+            });
+            updateGeralChartsAndPeriod();
+        };
+
         function updateAll(rebuildSelectors = false) {
             if(!rawData.length) return;
-            const tsStart = new Date(document.getElementById('dataInicio').value + "T00:00:00").getTime();
-            const tsEnd = new Date(document.getElementById('dataFim').value + "T23:59:59").getTime();
             const fData = rawData.filter(d => d.fundef === activeFundef);
 
-            updateTableAndKPIs(fData, tsStart, tsEnd);
-            const timelineGeral = buildTimeline(fData, tsStart, tsEnd);
-            render4Charts(timelineGeral, 'Geral');
+            updateTableAndKPIs(fData);
 
             if (rebuildSelectors) {
-                const container = document.getElementById('itemSelectors');
-                container.innerHTML = '';
+                // Reconstruir seletores gerais
+                const containerGeral = document.getElementById('itemSelectorsGeral');
+                containerGeral.innerHTML = '';
+                fData.forEach((d) => {
+                    containerGeral.innerHTML += `
+                        <label class="cursor-pointer">
+                            <input type="checkbox" value="${d.matchKey}" checked class="item-checkbox-geral hidden" onchange="updateGeralChartsAndPeriod()">
+                            <span class="px-3 py-1.5 rounded-full border border-slate-300 text-xs font-semibold text-slate-600 transition-colors inline-block shadow-sm select-none">${d.item}</span>
+                        </label>
+                    `;
+                });
+
+                // Reconstruir seletores específicos
+                const containerSpec = document.getElementById('itemSelectors');
+                containerSpec.innerHTML = '';
                 fData.forEach((d, i) => {
                     const chk = i === 0 ? 'checked' : '';
-                    container.innerHTML += `
+                    containerSpec.innerHTML += `
                         <label class="cursor-pointer">
                             <input type="checkbox" value="${d.matchKey}" ${chk} class="item-checkbox hidden" onchange="updateSpecCharts()">
                             <span class="px-3 py-1.5 rounded-full border border-slate-300 text-xs font-semibold text-slate-600 transition-colors inline-block shadow-sm select-none">${d.item}</span>
@@ -327,8 +360,21 @@
                     `;
                 });
             }
+            updateGeralChartsAndPeriod();
             updateSpecCharts();
         }
+
+        window.updateGeralChartsAndPeriod = function() {
+            const tsStart = new Date(document.getElementById('dataInicio').value + "T00:00:00").getTime();
+            const tsEnd = new Date(document.getElementById('dataFim').value + "T23:59:59").getTime();
+            const selectedKeys = Array.from(document.querySelectorAll('.item-checkbox-geral:checked')).map(cb => cb.value);
+            
+            const fData = rawData.filter(d => d.fundef === activeFundef && selectedKeys.includes(d.matchKey));
+            
+            const timelineGeral = buildTimeline(fData, tsStart, tsEnd);
+            render4Charts(timelineGeral, 'Geral');
+            updatePeriodKPIs(fData, tsStart, tsEnd);
+        };
 
         window.updateSpecCharts = function() {
             const selectedKeys = Array.from(document.querySelectorAll('.item-checkbox:checked')).map(cb => cb.value);
@@ -447,22 +493,25 @@
         }
 
         // Tabela Financeira com TODOS os Inputs liberados
-        function updateTableAndKPIs(fData, tsStart, tsEnd) {
+        function updateTableAndKPIs(fData) {
             const dIn = document.getElementById('dataInicio').value.split('-').reverse().join('/');
             const dOut = document.getElementById('dataFim').value.split('-').reverse().join('/');
+            const tsStart = new Date(document.getElementById('dataInicio').value + "T00:00:00").getTime();
+            const tsEnd = new Date(document.getElementById('dataFim').value + "T23:59:59").getTime();
+
             document.getElementById('thProd').innerText = `PRODUZIDO (${dIn} a ${dOut})`;
             document.getElementById('thEnt').innerText = `ENTREGUE (${dIn} a ${dOut})`;
             document.getElementById('thEst').innerText = `EM ESTOQUE (Até ${dOut})`;
-            document.getElementById('lblPeriodoKpi').innerText = `${dIn} a ${dOut}`;
 
-            let sums = { sQ:0, sO:0, sR:0, eTot:0, eTotO:0, eTotR:0, fQ:0, fO:0, fR:0, pQ:0, pO:0, pR:0, eQ:0, eO:0, eR:0, estQ:0, estO:0, estR:0 };
+            let sums = { sQ:0, sO:0, sR:0, pTotQ:0, pTotO:0, pTotR:0, eTot:0, eTotO:0, eTotR:0, fQ:0, fO:0, fR:0, pQ:0, pO:0, pR:0, eQ:0, eO:0, eR:0, estQ:0, estO:0, estR:0 };
             const tbody = document.getElementById('tabelaBody');
             tbody.innerHTML = '';
 
             fData.forEach(d => {
-                let pQtd = 0, eQtd = 0, eQtdTotal = 0;
+                let pQtd = 0, eQtd = 0, eQtdTotal = 0, pTotQtd = 0;
                 
                 d.eventos_producao.forEach(e => { 
+                    pTotQtd += e.qtd;
                     const ts = parseBRDate(e.data);
                     if(ts === 0 || (ts >= tsStart && ts <= tsEnd)) pQtd += e.qtd; 
                 });
@@ -478,6 +527,7 @@
 
                 const rowVals = {
                     sQ: d.qtd_solicitada, sO: d.qtd_solicitada * d.preco_orig, sR: d.qtd_solicitada * d.preco_reaj,
+                    pTotQ: pTotQtd, pTotO: pTotQtd * d.preco_orig, pTotR: pTotQtd * d.preco_reaj,
                     eTot: eQtdTotal, eTotO: eQtdTotal * d.preco_orig, eTotR: eQtdTotal * d.preco_reaj,
                     fQ: faltante, fO: faltante * d.preco_orig, fR: faltante * d.preco_reaj,
                     pQ: pQtd, pO: pQtd * d.preco_orig, pR: pQtd * d.preco_reaj,
@@ -485,7 +535,7 @@
                     estQ: d.estoque_total, estO: d.estoque_total * d.preco_orig, estR: d.estoque_total * d.preco_reaj
                 };
 
-                ['sQ','sO','sR','eTot','eTotO','eTotR','fQ','fO','fR','pQ','pO','pR','eQ','eO','eR','estQ','estO','estR'].forEach(k => sums[k] += rowVals[k]);
+                ['sQ','sO','sR','pTotQ','pTotO','pTotR','eTot','eTotO','eTotR','fQ','fO','fR','pQ','pO','pR','eQ','eO','eR','estQ','estO','estR'].forEach(k => sums[k] += rowVals[k]);
 
                 // 1. PREÇOS
                 const tdPrecoHtml = isEditMode 
@@ -603,15 +653,41 @@
             document.getElementById('kpiEstNum').innerText = sums.estQ.toLocaleString('pt-BR') + ' un';
             document.getElementById('kpiEstOrig').innerText = formatMoney(sums.estO);
             document.getElementById('kpiEstReaj').innerText = formatMoney(sums.estR);
+        }
 
-            // KPIs do Período (Entre os gráficos e a tabela)
-            document.getElementById('kpiPeriodoProdNum').innerText = sums.pQ.toLocaleString('pt-BR') + ' un';
-            document.getElementById('kpiPeriodoProdOrig').innerText = formatMoney(sums.pO);
-            document.getElementById('kpiPeriodoProdReaj').innerText = formatMoney(sums.pR);
+        function updatePeriodKPIs(fData, tsStart, tsEnd) {
+            const dIn = document.getElementById('dataInicio').value.split('-').reverse().join('/');
+            const dOut = document.getElementById('dataFim').value.split('-').reverse().join('/');
+            document.getElementById('lblPeriodoKpi').innerText = `${dIn} a ${dOut}`;
 
-            document.getElementById('kpiPeriodoEntNum').innerText = sums.eQ.toLocaleString('pt-BR') + ' un';
-            document.getElementById('kpiPeriodoEntOrig').innerText = formatMoney(sums.eO);
-            document.getElementById('kpiPeriodoEntReaj').innerText = formatMoney(sums.eR);
+            let pQ = 0, pO = 0, pR = 0, eQ = 0, eO = 0, eR = 0;
+
+            fData.forEach(d => {
+                d.eventos_producao.forEach(e => {
+                    const ts = parseBRDate(e.data);
+                    if (ts === 0 || (ts >= tsStart && ts <= tsEnd)) {
+                        pQ += e.qtd;
+                        pO += e.qtd * d.preco_orig;
+                        pR += e.qtd * d.preco_reaj;
+                    }
+                });
+                d.eventos_entrega.forEach(e => {
+                    const ts = parseBRDate(e.data);
+                    if (ts === 0 || (ts >= tsStart && ts <= tsEnd)) {
+                        eQ += e.qtd;
+                        eO += e.qtd * d.preco_orig;
+                        eR += e.qtd * d.preco_reaj;
+                    }
+                });
+            });
+
+            document.getElementById('kpiPeriodoProdNum').innerText = pQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiPeriodoProdOrig').innerText = formatMoney(pO);
+            document.getElementById('kpiPeriodoProdReaj').innerText = formatMoney(pR);
+
+            document.getElementById('kpiPeriodoEntNum').innerText = eQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiPeriodoEntOrig').innerText = formatMoney(eO);
+            document.getElementById('kpiPeriodoEntReaj').innerText = formatMoney(eR);
         }
 
         init();
