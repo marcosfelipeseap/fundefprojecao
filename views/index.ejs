@@ -70,7 +70,7 @@
         <p class="text-xs text-center text-slate-400 mb-2">Nota: As edições feitas aqui são temporárias para simulação. Ao recarregar a página ou clicar em Resetar, os dados oficiais da planilha retornam.</p>
         <h2 class="text-center text-xl font-bold text-slate-700 mt-4 mb-2">Visão Geral: <span id="lblFundefMain" class="text-blue-600">FUNDEF 1</span></h2>
 
-        <!-- KPIs GERAIS DO TOPO -->
+        <!-- KPIs GERAIS DO TOPO (Totais Globais / Gerais) -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-orange-500">
                 <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Solicitado</h3>
@@ -80,12 +80,12 @@
                     <span>Reaj: <b id="kpiSolReaj" class="text-orange-600">R$ 0</b></span>
                 </div>
             </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-blue-500">
-                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Produzido</h3>
-                <p class="text-3xl font-bold text-blue-700 mt-1" id="kpiProdNum">0</p>
+            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-red-500">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Pendente</h3>
+                <p class="text-3xl font-bold text-red-700 mt-1" id="kpiPendNum">0</p>
                 <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
-                    <span>Orig: <b id="kpiProdOrig" class="text-slate-700">R$ 0</b></span>
-                    <span>Reaj: <b id="kpiProdReaj" class="text-blue-600">R$ 0</b></span>
+                    <span>Orig: <b id="kpiPendOrig" class="text-slate-700">R$ 0</b></span>
+                    <span>Reaj: <b id="kpiPendReaj" class="text-red-600">R$ 0</b></span>
                 </div>
             </div>
             <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-green-500">
@@ -123,6 +123,29 @@
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-sm font-bold text-slate-700 text-center mb-1">ENTREGUE - Financeiro (R$)</h3>
                 <div class="relative h-64"><canvas id="chartGeralEntVal"></canvas></div>
+            </div>
+        </div>
+
+        <!-- KPIs DO PERÍODO SELECIONADO (Entre os gráficos e a tabela) -->
+        <div class="mt-6 bg-slate-100 p-4 rounded-2xl border border-slate-200">
+            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 text-center">Resumo do Período Selecionado (<span id="lblPeriodoKpi">--</span>)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-blue-500">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Produzido no Período</h3>
+                    <p class="text-3xl font-bold text-blue-700 mt-1" id="kpiPeriodoProdNum">0</p>
+                    <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
+                        <span>Orig: <b id="kpiPeriodoProdOrig" class="text-slate-700">R$ 0</b></span>
+                        <span>Reaj: <b id="kpiPeriodoProdReaj" class="text-blue-600">R$ 0</b></span>
+                    </div>
+                </div>
+                <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-green-500">
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Entregue no Período</h3>
+                    <p class="text-3xl font-bold text-green-700 mt-1" id="kpiPeriodoEntNum">0</p>
+                    <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
+                        <span>Orig: <b id="kpiPeriodoEntOrig" class="text-slate-700">R$ 0</b></span>
+                        <span>Reaj: <b id="kpiPeriodoEntReaj" class="text-green-600">R$ 0</b></span>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -245,8 +268,6 @@
             
             let item = rawData.find(d => d.matchKey === matchKey);
             if(item) {
-                // Se a edição for de Quantidade Produzida/Entregue, nós sobreescrevemos o histórico inteiro
-                // e jogamos esse número como um "evento único" na data final do filtro atual.
                 if (field === 'eventos_producao' || field === 'eventos_entrega') {
                     let dFimStr = document.getElementById('dataFim').value;
                     item[field] = [{ data: dFimStr, qtd: num }];
@@ -432,6 +453,7 @@
             document.getElementById('thProd').innerText = `PRODUZIDO (${dIn} a ${dOut})`;
             document.getElementById('thEnt').innerText = `ENTREGUE (${dIn} a ${dOut})`;
             document.getElementById('thEst').innerText = `EM ESTOQUE (Até ${dOut})`;
+            document.getElementById('lblPeriodoKpi').innerText = `${dIn} a ${dOut}`;
 
             let sums = { sQ:0, sO:0, sR:0, eTot:0, eTotO:0, eTotR:0, fQ:0, fO:0, fR:0, pQ:0, pO:0, pR:0, eQ:0, eO:0, eR:0, estQ:0, estO:0, estR:0 };
             const tbody = document.getElementById('tabelaBody');
@@ -565,18 +587,31 @@
                 </tr>
             `;
 
+            // Top KPIs (Totais Globais/Verdadeiros da Tabela)
             document.getElementById('kpiSolNum').innerText = sums.sQ.toLocaleString('pt-BR') + ' un';
             document.getElementById('kpiSolOrig').innerText = formatMoney(sums.sO);
             document.getElementById('kpiSolReaj').innerText = formatMoney(sums.sR);
-            document.getElementById('kpiProdNum').innerText = sums.pQ.toLocaleString('pt-BR') + ' un';
-            document.getElementById('kpiProdOrig').innerText = formatMoney(sums.pO);
-            document.getElementById('kpiProdReaj').innerText = formatMoney(sums.pR);
-            document.getElementById('kpiEntNum').innerText = sums.eQ.toLocaleString('pt-BR') + ' un';
-            document.getElementById('kpiEntOrig').innerText = formatMoney(sums.eO);
-            document.getElementById('kpiEntReaj').innerText = formatMoney(sums.eR);
+
+            document.getElementById('kpiPendNum').innerText = sums.fQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiPendOrig').innerText = formatMoney(sums.fO);
+            document.getElementById('kpiPendReaj').innerText = formatMoney(sums.fR);
+
+            document.getElementById('kpiEntNum').innerText = sums.eTot.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiEntOrig').innerText = formatMoney(sums.eTotO);
+            document.getElementById('kpiEntReaj').innerText = formatMoney(sums.eTotR);
+
             document.getElementById('kpiEstNum').innerText = sums.estQ.toLocaleString('pt-BR') + ' un';
             document.getElementById('kpiEstOrig').innerText = formatMoney(sums.estO);
             document.getElementById('kpiEstReaj').innerText = formatMoney(sums.estR);
+
+            // KPIs do Período (Entre os gráficos e a tabela)
+            document.getElementById('kpiPeriodoProdNum').innerText = sums.pQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiPeriodoProdOrig').innerText = formatMoney(sums.pO);
+            document.getElementById('kpiPeriodoProdReaj').innerText = formatMoney(sums.pR);
+
+            document.getElementById('kpiPeriodoEntNum').innerText = sums.eQ.toLocaleString('pt-BR') + ' un';
+            document.getElementById('kpiPeriodoEntOrig').innerText = formatMoney(sums.eO);
+            document.getElementById('kpiPeriodoEntReaj').innerText = formatMoney(sums.eR);
         }
 
         init();
