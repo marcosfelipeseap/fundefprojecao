@@ -16,7 +16,6 @@
         .tab-btn { background-color: #f8fafc; color: #64748b; border-color: #cbd5e1; }
         .item-checkbox:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
         .item-checkbox-geral:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
-        /* Oculta setinhas chatas do input number */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
@@ -37,7 +36,6 @@
                     <button id="btnF1" onclick="setFundef(1)" class="tab-btn active px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 1</button>
                     <button id="btnF2" onclick="setFundef(2)" class="tab-btn px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 2</button>
                 </div>
-                <!-- BOTÕES DE NAVEGAÇÃO -->
                 <a href="/projecao" class="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors shadow-md border border-indigo-700 flex items-center">
                     <i class="fa-solid fa-calendar-days mr-2"></i> Projeção
                 </a>
@@ -426,12 +424,10 @@
             return timeline.length ? timeline : [{ date: 'Sem Dados', pQtdDaily:0, pQtdAcum:0, pOrigDaily:0, pOrigAcum:0, pReajDaily:0, pReajAcum:0, eQtdDaily:0, eQtdAcum:0, eOrigDaily:0, eOrigAcum:0, eReajDaily:0, eReajAcum:0 }];
         }
 
-        // --- NOVA CONFIGURAÇÃO DE RENDERIZAÇÃO E TOOLTIPS ---
         function render4Charts(timeline, prefix) {
             const labels = timeline.map(t => t.date);
             const isAcum = document.getElementById('chartViewMode').value === 'acumulado';
             
-            // Agora passamos o dailyData pro Chart ler no Tooltip
             drawLineChart(`chart${prefix}ProdQtd`, labels, [
                 { label: `Qtd Produzida`, data: timeline.map(t => isAcum ? t.pQtdAcum : t.pQtdDaily), dailyData: timeline.map(t => t.pQtdDaily), borderColor: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' }
             ], 'num', isAcum);
@@ -461,7 +457,7 @@
                 type: chartType, 
                 label: cfg.label, 
                 data: cfg.data, 
-                dailyData: cfg.dailyData, // Propriedade injetada pro Tooltip
+                dailyData: cfg.dailyData, 
                 borderColor: cfg.borderColor,
                 backgroundColor: chartType === 'bar' ? cfg.borderColor : cfg.bg, 
                 borderWidth: chartType === 'bar' ? 0 : 2, fill: cfg.bg !== 'transparent',
@@ -473,12 +469,12 @@
                 data: { labels, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    // Mais espaço no topo pra caber as labels verticais sem cortar
-                    layout: { padding: { top: 40, bottom: 5, right: 10 } },
+                    // Aumentando espaços para os números não cortarem
+                    layout: { padding: { top: 45, bottom: 25, right: 15 } },
                     plugins: { 
                         legend: { position: 'top', labels: {boxWidth: 10, font: {size: 10}} },
                         
-                        // TOOLTIP PERSONALIZADO (Exibe acumulado + valor do dia)
+                        // TOOLTIP APRIMORADO
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
@@ -489,7 +485,6 @@
                                     let valStr = type === 'val' ? formatMoney(val) : val.toLocaleString('pt-BR') + ' un';
                                     let str = `${label}: ${valStr}`;
 
-                                    // Se estamos vendo Acumulada, mostramos quanto teve no dia em específico
                                     if (isAcum && dailyVal !== null && dailyVal > 0) {
                                         let dailyStr = type === 'val' ? formatMoney(dailyVal) : dailyVal.toLocaleString('pt-BR') + ' un';
                                         str += ` (Neste dia: +${dailyStr})`;
@@ -499,20 +494,24 @@
                             }
                         },
 
-                        // NÚMEROS VERTICAIS NO GRÁFICO
+                        // LABELS INTELIGENTES
                         datalabels: {
-                            rotation: -90, // Torna o texto vertical
-                            align: 'end',
-                            anchor: 'end', 
+                            rotation: -90,
+                            // O principal vai pra cima (end/top), o secundário pra baixo (start/bottom)
+                            align: (context) => chartType === 'line' ? (context.datasetIndex === 0 ? 'top' : 'bottom') : 'top',
+                            anchor: (context) => chartType === 'line' ? (context.datasetIndex === 0 ? 'end' : 'start') : 'end',
                             offset: 6, 
                             font: {size: 9, weight: 'bold'}, 
                             color: (context) => context.dataset.borderColor, 
                             formatter: (v, context) => {
                                 if (!v || v <= 0) return ''; 
+                                
+                                // Oculta o valor original se for muito próximo (diferença < 5%)
                                 if (chartType === 'line' && context.datasetIndex === 1) {
                                     const outroValor = context.chart.data.datasets[0].data[context.dataIndex];
-                                    if (v === outroValor) return ''; 
+                                    if (outroValor && Math.abs(v - outroValor) < (outroValor * 0.05)) return ''; 
                                 }
+                                
                                 if (type === 'val') {
                                     if (v >= 1000000) return 'R$ ' + (v/1000000).toFixed(1).replace('.',',') + 'M';
                                     return 'R$ ' + (v/1000).toFixed(0) + 'k';
@@ -524,7 +523,7 @@
                     scales: { 
                         x: { ticks: { font: {size: 9} } },
                         y: { 
-                            grace: '15%', // Adiciona folga no teto do gráfico pras labels caberem
+                            grace: '20%', // Dá espaço extra no topo do gráfico
                             ticks: { font: {size: 9}, callback: (v) => type === 'val' ? 'R$ '+(v/1000).toFixed(0)+'k' : v } 
                         }
                     }
