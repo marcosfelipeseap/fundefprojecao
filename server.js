@@ -187,8 +187,10 @@ app.get('/api/projecao', async (req, res) => {
                 processo: getCol(row, ['PROCESSO', 'NPROCESSO']),
                 produto: getCol(row, ['PRODUTO', 'ITEM']),
                 faltante: parseNumber(getCol(row, ['FALTANTENODIA1210', 'FALTANTE'])),
+                
+                // MANTIDOS COMO STRING BRUTA PARA LER MÚLTIPLAS FASES COM ";"
                 data_inicio: getCol(row, ['DATAINICIOPROJECAO', 'DATAINICIO', 'INICIO']),
-                qtd_semanal: parseNumber(getCol(row, ['QUANTIDADESEMANAL', 'QTDSEMANAL']))
+                qtd_semanal: getCol(row, ['QUANTIDADESEMANAL', 'QTDSEMANAL'])
             };
         }).filter(d => d.processo && d.produto && d.data_inicio);
 
@@ -204,7 +206,7 @@ app.get('/api/simulador', async (req, res) => {
     try {
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId: SHEET_ID,
-            range: 'SIMULADOR', // <-- CORREÇÃO: Sem !A:Z. Puxa todas as colunas dinamicamente.
+            range: 'SIMULADOR',
         });
         res.json(response.data.values || []);
     } catch (error) {

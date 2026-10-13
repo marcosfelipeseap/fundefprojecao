@@ -67,7 +67,8 @@
                         <tr>
                             <th>Processo</th>
                             <th>Produto / Item</th>
-                            <th class="text-center">Início Projeção</th>
+                            <th class="text-center">Fases da Projeção (Início)</th>
+                            <th class="text-center">Qtd Semanal na Fase</th>
                             <th class="text-center text-red-700 bg-red-50 font-bold border-l border-slate-200">Faltante Total</th>
                             <th class="text-center text-blue-700 bg-blue-50 font-bold">Projeção (Limitada)</th>
                             <th class="text-center text-emerald-700 bg-emerald-50 font-bold">Produzido Real Atual</th>
@@ -75,7 +76,7 @@
                         </tr>
                     </thead>
                     <tbody id="tabelaProjecaoBody">
-                        <tr><td colspan="7" class="text-center text-slate-500 italic py-8">Carregando dados...</td></tr>
+                        <tr><td colspan="8" class="text-center text-slate-500 italic py-8">Carregando dados...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -128,7 +129,7 @@
                 
             } catch (error) {
                 console.error(error);
-                document.getElementById('tabelaProjecaoBody').innerHTML = `<tr><td colspan="7" class="text-center text-red-500 py-8">Erro ao carregar dados.</td></tr>`;
+                document.getElementById('tabelaProjecaoBody').innerHTML = `<tr><td colspan="8" class="text-center text-red-500 py-8">Erro ao carregar dados.</td></tr>`;
                 document.getElementById('filterContainer').innerHTML = `<span class="text-red-500 text-sm">Erro ao carregar.</span>`;
             }
         }
@@ -146,10 +147,45 @@
             return 0; 
         }
 
-        function calcularCurvas(item, eventos_producao) {
-            const tsInicio = parseDataBRToTs(item.data_inicio);
-            if (tsInicio === 0) return { ...item, historico: [] };
+        // NOVO PARSER PARA LIDAR COM STRINGS TIPO "500" ou "500,5" DENTRO DO ARRAY (Limpando sujeira)
+        function parseLocalNumber(val) {
+            if (val === null || val === undefined || val === '') return 0;
+            if (typeof val === 'number') return val;
+            let s = String(val).trim().replace(/[^\d.,\-]/g, '');
+            if (s.includes(',') && s.includes('.')) {
+                if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+                else s = s.replace(/,/g, '');
+            } else if (s.includes(',')) s = s.replace(',', '.');
+            else if (s.includes('.') && s.split('.').pop().length === 3) s = s.replace(/\./g, '');
+            return parseFloat(s) || 0;
+        }
 
+        function calcularCurvas(item, eventos_producao) {
+            
+            // NOVO: Separador de múltiplas datas e quantidades (usando ;)
+            const rawDatas = String(item.data_inicio).split(';');
+            const rawQtds = String(item.qtd_semanal).split(';');
+            
+            let periodos = [];
+            for (let i = 0; i < rawDatas.length; i++) {
+                let ts = parseDataBRToTs(rawDatas[i]);
+                
+                // Se a pessoa colocou 3 datas, mas só 2 quantidades, repete a última quantidade
+                let rawQtd = rawQtds[i] !== undefined ? rawQtds[i] : rawQtds[rawQtds.length - 1];
+                let qtd = parseLocalNumber(rawQtd);
+                
+                if (ts > 0) {
+                    periodos.push({ ts: ts, qtd: qtd, dateStr: rawDatas[i].trim() });
+                }
+            }
+            
+            // Garante que a linha do tempo está na ordem correta
+            periodos.sort((a, b) => a.ts - b.ts);
+            
+            // Se nenhuma data foi válida, aborta a leitura deste item
+            if (periodos.length === 0) return { ...item, historico: [] };
+
+            const tsInicio = periodos[0].ts;
             const anoAtual = new Date(tsInicio).getFullYear();
             const tsFimAno = new Date(anoAtual, 11, 31).getTime();
             const tsHoje = new Date().getTime();
@@ -178,13 +214,21 @@
             while (currentTs <= tsFimAno) {
                 let nextTs = currentTs + (7 * 86400000);
                 
-                // Projeção teórica soma qtd semanal. (TRAVA NA META TOTAL FALTANTE)
-                projAcumulada += item.qtd_semanal;
+                // NOVO: Verifica de qual "Período (Fase)" essa data atual pertence para pegar a quantidade correta
+                let activeQtd = periodos[0].qtd;
+                for (let p of periodos) {
+                    if (currentTs >= p.ts) {
+                        activeQtd = p.qtd;
+                    }
+                }
+                
+                // Soma a projeção teórica ativa da fase atual. (TRAVA NA META)
+                projAcumulada += activeQtd;
                 if (projAcumulada > item.faltante) {
                     projAcumulada = item.faltante;
                 }
                 
-                // Real soma tudo o que for registrado nessa janela
+                // Soma Real
                 let sumSemana = 0;
                 eventos_producao.forEach(e => {
                     const eTs = parseDataBRToTs(e.data);
@@ -207,6 +251,7 @@
                 currentTs = nextTs;
             }
 
+            item.periodos = periodos; // Guardado para fazer os crachás na tela
             item.historico = historico;
             item.proj_fim_ano = projAcumulada;
             item.real_total_atual = realAcumulada;
@@ -256,7 +301,7 @@
             tbody.innerHTML = '';
 
             if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="text-center text-slate-500 py-8">Nenhum produto selecionado.</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-slate-500 py-8">Nenhum produto selecionado.</td></tr>`;
                 return;
             }
 
@@ -271,14 +316,19 @@
                     statusReal = `<span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap"><i class="fa-solid fa-person-running mr-1"></i> Faltam ${deficit.toLocaleString('pt-BR')} un</span>`;
                 }
 
+                // Renderiza múltiplas datas e quantidades na tabela caso haja mais de 1 período cadastrado
+                let datasHtml = d.periodos.map(p => p.dateStr).join('<br><span class="text-[10px] text-indigo-400 font-bold">↳</span> ');
+                let qtdsHtml = d.periodos.map(p => p.qtd.toLocaleString('pt-BR') + ' <span class="text-[10px]">/sem</span>').join('<br><span class="text-[10px] text-indigo-400 font-bold">↳</span> ');
+
                 tr.innerHTML = `
-                    <td class="font-mono text-xs text-slate-500">${d.processo}</td>
-                    <td class="font-bold text-slate-700">${d.produto}</td>
-                    <td class="text-center text-slate-600">${d.data_inicio}</td>
-                    <td class="text-center font-bold text-red-600 bg-red-50/50 border-l border-slate-200">${d.faltante.toLocaleString('pt-BR')}</td>
-                    <td class="text-center font-bold text-blue-600 bg-blue-50/50">${d.proj_fim_ano.toLocaleString('pt-BR')}</td>
-                    <td class="text-center font-bold text-emerald-700 bg-emerald-50/50 text-lg">${d.real_total_atual.toLocaleString('pt-BR')}</td>
-                    <td class="text-center border-l border-slate-200">${statusReal}</td>
+                    <td class="font-mono text-xs text-slate-500 align-middle">${d.processo}</td>
+                    <td class="font-bold text-slate-700 align-middle">${d.produto}</td>
+                    <td class="text-center text-slate-600 align-middle">${datasHtml}</td>
+                    <td class="text-center text-blue-600 font-semibold align-middle">${qtdsHtml}</td>
+                    <td class="text-center font-bold text-red-600 bg-red-50/50 border-l border-slate-200 align-middle">${d.faltante.toLocaleString('pt-BR')}</td>
+                    <td class="text-center font-bold text-blue-600 bg-blue-50/50 align-middle">${d.proj_fim_ano.toLocaleString('pt-BR')}</td>
+                    <td class="text-center font-bold text-emerald-700 bg-emerald-50/50 text-lg align-middle">${d.real_total_atual.toLocaleString('pt-BR')}</td>
+                    <td class="text-center border-l border-slate-200 align-middle">${statusReal}</td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -299,25 +349,30 @@
             data.forEach((item, index) => {
                 const chartId = `chart_item_${index}`;
                 
+                // Constrói os crachás de meta dinamicamente para suportar 1, 2, 3 datas...
+                let metasHtml = item.periodos.map(p => `
+                    <div class="mt-1 bg-indigo-50 text-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm flex items-center justify-between gap-3 w-full">
+                        <span class="text-[10px] font-bold uppercase whitespace-nowrap"><i class="fa-regular fa-calendar mr-1"></i> A partir de ${p.dateStr}:</span>
+                        <span class="text-sm font-black whitespace-nowrap">${p.qtd.toLocaleString('pt-BR')} <span class="text-[9px] font-bold text-indigo-600">un/sem</span></span>
+                    </div>
+                `).join('');
+
                 const colDiv = document.createElement('div');
                 colDiv.className = 'bg-white p-6 rounded-2xl shadow-sm border border-slate-200';
                 colDiv.innerHTML = `
                     <div class="flex justify-between items-start mb-4">
-                        <div>
+                        <div class="w-1/2">
                             <h3 class="text-base font-bold text-slate-800">${item.produto}</h3>
                             <p class="text-[11px] font-mono text-slate-400 mt-1">PROCESSO: ${item.processo}</p>
                         </div>
-                        <div class="text-right flex flex-col items-end">
+                        <div class="text-right flex flex-col items-end w-1/2 max-w-[220px]">
                             <span class="block text-[11px] font-bold text-slate-400 uppercase">Faltante Atual</span>
-                            <span class="block text-lg font-bold text-red-600">${item.faltante.toLocaleString('pt-BR')} un</span>
+                            <span class="block text-lg font-bold text-red-600 mb-1">${item.faltante.toLocaleString('pt-BR')} un</span>
                             
-                            <!-- DESTAQUE DA META SEMANAL -->
-                            <div class="mt-2 bg-indigo-100 text-indigo-800 px-3 py-1 rounded-lg border border-indigo-200 shadow-sm flex items-center">
-                                <i class="fa-solid fa-bullseye mr-2"></i>
-                                <span class="text-xs font-bold uppercase mr-1">Meta Semanal:</span>
-                                <span class="text-sm font-black">${item.qtd_semanal.toLocaleString('pt-BR')} <span class="text-[10px] font-bold text-indigo-600">un/sem</span></span>
+                            <!-- DESTAQUES DAS METAS E FASES -->
+                            <div class="flex flex-col w-full">
+                                ${metasHtml}
                             </div>
-
                         </div>
                     </div>
                     <div class="relative h-[280px] w-full">
@@ -357,7 +412,7 @@
                                 }
                             },
                             {
-                                label: 'Projeção Cumulativa (Limitada à Meta)',
+                                label: 'Projeção Cumulativa',
                                 data: valProj,
                                 borderColor: '#3b82f6',
                                 backgroundColor: 'transparent',
