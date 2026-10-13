@@ -50,7 +50,7 @@
         <p class="text-xs text-center text-slate-400 mb-2">Nota: As edições feitas aqui são temporárias para simulação. Ao recarregar a página ou clicar em Resetar, os dados oficiais da planilha retornam.</p>
         <h2 class="text-center text-xl font-bold text-slate-700 mt-4 mb-2">Visão Geral: <span id="lblFundefMain" class="text-blue-600">FUNDEF 1</span></h2>
 
-        <!-- KPIs GERAIS DO TOPO (Totais Globais / Gerais) -->
+        <!-- KPIs GERAIS DO TOPO -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-orange-500">
                 <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Solicitado</h3>
@@ -134,19 +134,19 @@
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-sm font-bold text-slate-700 text-center mb-1">PRODUZIDO - Físico (Qtd)</h3>
-                <div class="relative h-64"><canvas id="chartGeralProdQtd"></canvas></div>
+                <div class="relative h-72"><canvas id="chartGeralProdQtd"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-sm font-bold text-slate-700 text-center mb-1">PRODUZIDO - Financeiro (R$)</h3>
-                <div class="relative h-64"><canvas id="chartGeralProdVal"></canvas></div>
+                <div class="relative h-72"><canvas id="chartGeralProdVal"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-sm font-bold text-slate-700 text-center mb-1">ENTREGUE - Físico (Qtd)</h3>
-                <div class="relative h-64"><canvas id="chartGeralEntQtd"></canvas></div>
+                <div class="relative h-72"><canvas id="chartGeralEntQtd"></canvas></div>
             </div>
             <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
                 <h3 class="text-sm font-bold text-slate-700 text-center mb-1">ENTREGUE - Financeiro (R$)</h3>
-                <div class="relative h-64"><canvas id="chartGeralEntVal"></canvas></div>
+                <div class="relative h-72"><canvas id="chartGeralEntVal"></canvas></div>
             </div>
         </div>
 
@@ -213,10 +213,10 @@
             <div id="itemSelectors" class="flex flex-wrap gap-2 mb-6"></div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">PRODUZIDO (Qtd)</h4><div class="relative h-56"><canvas id="chartSpecProdQtd"></canvas></div></div>
-                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">PRODUZIDO (R$)</h4><div class="relative h-56"><canvas id="chartSpecProdVal"></canvas></div></div>
-                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">ENTREGUE (Qtd)</h4><div class="relative h-56"><canvas id="chartSpecEntQtd"></canvas></div></div>
-                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">ENTREGUE (R$)</h4><div class="relative h-56"><canvas id="chartSpecEntVal"></canvas></div></div>
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">PRODUZIDO (Qtd)</h4><div class="relative h-64"><canvas id="chartSpecProdQtd"></canvas></div></div>
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">PRODUZIDO (R$)</h4><div class="relative h-64"><canvas id="chartSpecProdVal"></canvas></div></div>
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">ENTREGUE (Qtd)</h4><div class="relative h-64"><canvas id="chartSpecEntQtd"></canvas></div></div>
+                <div class="border border-slate-100 rounded-xl p-3"><h4 class="text-center text-xs font-bold text-slate-500 mb-1">ENTREGUE (R$)</h4><div class="relative h-64"><canvas id="chartSpecEntVal"></canvas></div></div>
             </div>
         </div>
 
@@ -225,8 +225,8 @@
     <script>
         Chart.register(ChartDataLabels);
         
-        let originalData = []; // Backup imaculado da Planilha
-        let rawData = [];      // Dados em uso / editáveis
+        let originalData = []; 
+        let rawData = [];      
         let activeFundef = 1;
         let charts = {};
         let isEditMode = false;
@@ -426,24 +426,28 @@
             return timeline.length ? timeline : [{ date: 'Sem Dados', pQtdDaily:0, pQtdAcum:0, pOrigDaily:0, pOrigAcum:0, pReajDaily:0, pReajAcum:0, eQtdDaily:0, eQtdAcum:0, eOrigDaily:0, eOrigAcum:0, eReajDaily:0, eReajAcum:0 }];
         }
 
+        // --- NOVA CONFIGURAÇÃO DE RENDERIZAÇÃO E TOOLTIPS ---
         function render4Charts(timeline, prefix) {
             const labels = timeline.map(t => t.date);
             const isAcum = document.getElementById('chartViewMode').value === 'acumulado';
-            const suffix = isAcum ? '(Acumulado)' : '(Por Dia)';
-
+            
+            // Agora passamos o dailyData pro Chart ler no Tooltip
             drawLineChart(`chart${prefix}ProdQtd`, labels, [
-                { label: `Qtd Produzida ${suffix}`, data: timeline.map(t => isAcum ? t.pQtdAcum : t.pQtdDaily), borderColor: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' }
+                { label: `Qtd Produzida`, data: timeline.map(t => isAcum ? t.pQtdAcum : t.pQtdDaily), dailyData: timeline.map(t => t.pQtdDaily), borderColor: '#3b82f6', bg: 'rgba(59, 130, 246, 0.1)' }
             ], 'num', isAcum);
+            
             drawLineChart(`chart${prefix}ProdVal`, labels, [
-                { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.pReajAcum : t.pReajDaily), borderColor: '#4f46e5', bg: 'transparent' },
-                { label: `Val. Original`, data: timeline.map(t => isAcum ? t.pOrigAcum : t.pOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
+                { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.pReajAcum : t.pReajDaily), dailyData: timeline.map(t => t.pReajDaily), borderColor: '#4f46e5', bg: 'transparent' },
+                { label: `Val. Original`, data: timeline.map(t => isAcum ? t.pOrigAcum : t.pOrigDaily), dailyData: timeline.map(t => t.pOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
             ], 'val', isAcum);
+            
             drawLineChart(`chart${prefix}EntQtd`, labels, [
-                { label: `Qtd Entregue ${suffix}`, data: timeline.map(t => isAcum ? t.eQtdAcum : t.eQtdDaily), borderColor: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }
+                { label: `Qtd Entregue`, data: timeline.map(t => isAcum ? t.eQtdAcum : t.eQtdDaily), dailyData: timeline.map(t => t.eQtdDaily), borderColor: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' }
             ], 'num', isAcum);
+            
             drawLineChart(`chart${prefix}EntVal`, labels, [
-                { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.eReajAcum : t.eReajDaily), borderColor: '#059669', bg: 'transparent' },
-                { label: `Val. Original`, data: timeline.map(t => isAcum ? t.eOrigAcum : t.eOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
+                { label: `Val. Reajustado`, data: timeline.map(t => isAcum ? t.eReajAcum : t.eReajDaily), dailyData: timeline.map(t => t.eReajDaily), borderColor: '#059669', bg: 'transparent' },
+                { label: `Val. Original`, data: timeline.map(t => isAcum ? t.eOrigAcum : t.eOrigDaily), dailyData: timeline.map(t => t.eOrigDaily), borderColor: '#94a3b8', bg: 'transparent', dash: [5,5] }
             ], 'val', isAcum);
         }
 
@@ -454,7 +458,11 @@
             const chartType = isAcum ? 'line' : 'bar';
             
             const datasets = datasetsConfig.map(cfg => ({
-                type: chartType, label: cfg.label, data: cfg.data, borderColor: cfg.borderColor,
+                type: chartType, 
+                label: cfg.label, 
+                data: cfg.data, 
+                dailyData: cfg.dailyData, // Propriedade injetada pro Tooltip
+                borderColor: cfg.borderColor,
                 backgroundColor: chartType === 'bar' ? cfg.borderColor : cfg.bg, 
                 borderWidth: chartType === 'bar' ? 0 : 2, fill: cfg.bg !== 'transparent',
                 tension: 0.2, pointRadius: 3, borderDash: cfg.dash || [], borderRadius: chartType === 'bar' ? 4 : 0
@@ -465,12 +473,39 @@
                 data: { labels, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    layout: { padding: { top: 15, bottom: 5 } },
+                    // Mais espaço no topo pra caber as labels verticais sem cortar
+                    layout: { padding: { top: 40, bottom: 5, right: 10 } },
                     plugins: { 
                         legend: { position: 'top', labels: {boxWidth: 10, font: {size: 10}} },
+                        
+                        // TOOLTIP PERSONALIZADO (Exibe acumulado + valor do dia)
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    let val = context.parsed.y;
+                                    let dailyVal = context.dataset.dailyData ? context.dataset.dailyData[context.dataIndex] : null;
+
+                                    let valStr = type === 'val' ? formatMoney(val) : val.toLocaleString('pt-BR') + ' un';
+                                    let str = `${label}: ${valStr}`;
+
+                                    // Se estamos vendo Acumulada, mostramos quanto teve no dia em específico
+                                    if (isAcum && dailyVal !== null && dailyVal > 0) {
+                                        let dailyStr = type === 'val' ? formatMoney(dailyVal) : dailyVal.toLocaleString('pt-BR') + ' un';
+                                        str += ` (Neste dia: +${dailyStr})`;
+                                    }
+                                    return str;
+                                }
+                            }
+                        },
+
+                        // NÚMEROS VERTICAIS NO GRÁFICO
                         datalabels: {
-                            align: (context) => chartType === 'line' ? (context.datasetIndex === 0 ? 'top' : 'bottom') : 'top',
-                            anchor: 'end', offset: 4, font: {size: 9, weight: 'bold'}, 
+                            rotation: -90, // Torna o texto vertical
+                            align: 'end',
+                            anchor: 'end', 
+                            offset: 6, 
+                            font: {size: 9, weight: 'bold'}, 
                             color: (context) => context.dataset.borderColor, 
                             formatter: (v, context) => {
                                 if (!v || v <= 0) return ''; 
@@ -488,7 +523,10 @@
                     },
                     scales: { 
                         x: { ticks: { font: {size: 9} } },
-                        y: { ticks: { font: {size: 9}, callback: (v) => type === 'val' ? 'R$ '+(v/1000).toFixed(0)+'k' : v } }
+                        y: { 
+                            grace: '15%', // Adiciona folga no teto do gráfico pras labels caberem
+                            ticks: { font: {size: 9}, callback: (v) => type === 'val' ? 'R$ '+(v/1000).toFixed(0)+'k' : v } 
+                        }
                     }
                 }
             });
