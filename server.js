@@ -9,6 +9,7 @@ const port = process.env.PORT || 3000;
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// ID único da planilha para todo o sistema
 const SHEET_ID = '1MOFoH9H0u9PC-w_-ZpE5yfc4QpbdFui2lI_uoZtedt4';
 
 // Autenticação Segura
@@ -25,13 +26,12 @@ const auth = new google.auth.GoogleAuth({
 
 const sheets = google.sheets({ version: 'v4', auth });
 
-// Limpeza geral para nomes de itens
+// Funções de limpeza
 function sanitize(str) {
     if (!str) return '';
     return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 }
 
-// Limpador super seguro para Número de Processo
 function cleanProc(str) {
     if (!str) return '';
     let s = String(str).trim();
@@ -39,38 +39,29 @@ function cleanProc(str) {
     return sanitize(s);
 }
 
-// O NOVO PARSE NUMBER INTELIGENTE (Resolve o bug do 2.575)
 function parseNumber(str) {
     if (str === null || str === undefined || str === '') return 0;
     if (typeof str === 'number') return str;
     
     let s = String(str).trim();
-    // Remove tudo que não for dígito, ponto ou vírgula
     s = s.replace(/[^\d.,]/g, ''); 
     
     if (s.includes(',') && s.includes('.')) {
-        // Tem os dois: descobre qual é o decimal e qual é a casa de milhar
         const lastComma = s.lastIndexOf(',');
         const lastDot = s.lastIndexOf('.');
         if (lastComma > lastDot) {
-            // Formato BR: 1.234,56
             s = s.replace(/\./g, '').replace(',', '.');
         } else {
-            // Formato US: 1,234.56
             s = s.replace(/,/g, '');
         }
     } else if (s.includes(',')) {
-        // Apenas vírgula: 1234,56 -> 1234.56
         s = s.replace(',', '.');
     } else if (s.includes('.')) {
-        // Apenas ponto: 2.575 (milhar) ou 12.50 (decimal)
         const parts = s.split('.');
         const lastPart = parts[parts.length - 1];
-        // Se tiver exatamente 3 dígitos após o último ponto, é casa de milhar no Brasil (ex: 2.575)
         if (lastPart.length === 3) {
-            s = s.replace(/\./g, ''); // Remove o ponto
+            s = s.replace(/\./g, '');
         }
-        // Se for diferente de 3 (ex: 12.50 ou 12.5), mantém o ponto pois é decimal
     }
     
     return parseFloat(s) || 0;
@@ -106,8 +97,18 @@ const targets = [
     { fundef: 2, processo: '202656010134023', item: 'ESTANTE ABERTA 8 PRATELEIRAS' }
 ];
 
+// ======================
+// ROTAS DE FRONTEND (EJS)
+// ======================
 app.get('/', (req, res) => res.render('index', { titulo: 'Dashboard Executivo - Móveis Escolares' }));
+app.get('/projecao', (req, res) => res.render('projecao', { titulo: 'Projeção de Produção' }));
+app.get('/simulador', (req, res) => res.render('simulador', { titulo: 'Simulador de Insumos' }));
 
+// ======================
+// ROTAS DE API
+// ======================
+
+// API 1: DASHBOARD PRINCIPAL
 app.get('/api/dados', async (req, res) => {
     try {
         const response = await sheets.spreadsheets.values.batchGet({
@@ -129,55 +130,37 @@ app.get('/api/dados', async (req, res) => {
 
         const findMatch = (proc, item) => dashboardData.find(d => d.matchKey === (cleanProc(proc) + "_" + sanitize(item)));
 
-        // 1. DEMANDAS
         demandas.forEach(row => {
-            const proc = getCol(row, ['NPROCESSO', 'PROCESSO', 'NUMERODOPROCESSO']);
-            const item = getCol(row, ['ITEM', 'PRODUTO', 'DESCRICAO']);
-            const match = findMatch(proc, item);
+            const match = findMatch(getCol(row, ['NPROCESSO', 'PROCESSO', 'NUMERODOPROCESSO']), getCol(row, ['ITEM', 'PRODUTO', 'DESCRICAO']));
             if (match) {
                 match.qtd_solicitada += parseNumber(getCol(row, ['TOTALSOLICITADO', 'QUANTIDADE', 'TOTAL']));
-                
                 const pOrig = parseNumber(getCol(row, ['PRECOUNITARIO', 'PRECO', 'VALOR', 'VALORUNITARIO', 'PRECOUNITARIOORIGINAL']));
                 if (pOrig > 0) match.preco_orig = pOrig;
-
                 const pReaj = parseNumber(getCol(row, ['PRECOUNITARIOREAJUSTADO', 'PRECOREAJUSTADO', 'VALORREAJUSTADO']));
-                if (pReaj > 0) {
-                    match.preco_reaj = pReaj;
-                } else if (match.preco_orig > 0) {
-                    match.preco_reaj = match.preco_orig; 
-                }
+                if (pReaj > 0) match.preco_reaj = pReaj; else if (match.preco_orig > 0) match.preco_reaj = match.preco_orig; 
             }
         });
 
-        // 2. PRODUCAO
         producao.forEach(row => {
-            const proc = getCol(row, ['PROCESSO', 'NPROCESSO', 'NUMERODOPROCESSO']);
-            const item = getCol(row, ['PRODUTO', 'ITEM', 'DESCRICAO']);
-            const match = findMatch(proc, item);
+            const match = findMatch(getCol(row, ['PROCESSO', 'NPROCESSO']), getCol(row, ['PRODUTO', 'ITEM']));
             if (match) {
-                const qtd = parseNumber(getCol(row, ['QUANTIDADE', 'TOTAL', 'QTD', 'QTDE', 'TOTALPRODUZIDO']));
-                const dataRaw = getCol(row, ['DATA', 'DATAPRODUCAO', 'DATADEPRODUCAO', 'CRIACAO']);
+                const qtd = parseNumber(getCol(row, ['QUANTIDADE', 'TOTAL', 'QTD']));
+                const dataRaw = getCol(row, ['DATA', 'DATAPRODUCAO']);
                 if (qtd > 0) match.eventos_producao.push({ data: dataRaw || 'S/D', qtd });
             }
         });
 
-        // 3. ENTREGAS
         entregas.forEach(row => {
-            const proc = getCol(row, ['NPROCESSO', 'PROCESSO', 'NUMERODOPROCESSO']);
-            const item = getCol(row, ['ITEM', 'PRODUTO', 'DESCRICAO']);
-            const match = findMatch(proc, item);
+            const match = findMatch(getCol(row, ['NPROCESSO', 'PROCESSO']), getCol(row, ['ITEM', 'PRODUTO']));
             if (match) {
-                const qtd = parseNumber(getCol(row, ['TOTALENTREGUE', 'QUANTIDADE', 'TOTAL', 'QTD']));
-                const dataRaw = getCol(row, ['DATA', 'DATAENTREGA', 'DATADEENTREGA', 'CRIACAO']);
+                const qtd = parseNumber(getCol(row, ['TOTALENTREGUE', 'QUANTIDADE', 'TOTAL']));
+                const dataRaw = getCol(row, ['DATA', 'DATAENTREGA']);
                 if (qtd > 0) match.eventos_entrega.push({ data: dataRaw || 'S/D', qtd });
             }
         });
 
-        // 4. ESTOQUE
         estoque.forEach(row => {
-            const proc = getCol(row, ['PROCESSO', 'NPROCESSO', 'NUMERODOPROCESSO']);
-            const item = getCol(row, ['PRODUTO', 'ITEM', 'DESCRICAO']);
-            const match = findMatch(proc, item);
+            const match = findMatch(getCol(row, ['PROCESSO', 'NPROCESSO']), getCol(row, ['PRODUTO', 'ITEM']));
             if (match) {
                 match.estoque_total += parseNumber(getCol(row, ['QUANTIDADEEMESTOQUE', 'QUANTIDADE', 'QTD']));
             }
@@ -185,8 +168,48 @@ app.get('/api/dados', async (req, res) => {
 
         res.json(dashboardData);
     } catch (error) {
-        console.error("Erro na API:", error);
+        console.error("Erro na API de Dados:", error);
         res.status(500).json({ error: 'Erro ao processar dados da planilha.' });
+    }
+});
+
+// API 2: PROJEÇÃO EVOLUTIVA
+app.get('/api/projecao', async (req, res) => {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SHEET_ID,
+            range: 'PROJECAO!A:Z'
+        });
+
+        const projecaoRaw = mapRows(response.data.values);
+        const data = projecaoRaw.map(row => {
+            return {
+                processo: getCol(row, ['PROCESSO', 'NPROCESSO']),
+                produto: getCol(row, ['PRODUTO', 'ITEM']),
+                faltante: parseNumber(getCol(row, ['FALTANTENODIA1210', 'FALTANTE'])),
+                data_inicio: getCol(row, ['DATAINICIOPROJECAO', 'DATAINICIO', 'INICIO']),
+                qtd_semanal: parseNumber(getCol(row, ['QUANTIDADESEMANAL', 'QTDSEMANAL']))
+            };
+        }).filter(d => d.processo && d.produto && d.data_inicio);
+
+        res.json(data);
+    } catch (error) {
+        console.error("Erro na API de Projeção:", error);
+        res.status(500).json({ error: 'Erro ao ler a aba PROJECAO.' });
+    }
+});
+
+// API 3: SIMULADOR DE INSUMOS
+app.get('/api/simulador', async (req, res) => {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId: SHEET_ID,
+            range: 'SIMULADOR', // <-- CORREÇÃO: Sem !A:Z. Puxa todas as colunas dinamicamente.
+        });
+        res.json(response.data.values || []);
+    } catch (error) {
+        console.error('Erro na API do Simulador:', error);
+        res.status(500).json({ error: 'Erro ao buscar dados da aba SIMULADOR' });
     }
 });
 
