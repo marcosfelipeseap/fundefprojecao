@@ -14,11 +14,8 @@
         table tbody tr:hover { background-color: #f8fafc; }
         .tab-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4); }
         .tab-btn { background-color: #f8fafc; color: #64748b; border-color: #cbd5e1; }
-        
-        /* Checkbox dos filtros */
         .item-checkbox:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
         .item-checkbox-geral:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
-        
         /* Oculta setinhas chatas do input number */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -53,7 +50,7 @@
         <p class="text-xs text-center text-slate-400 mb-2">Nota: As edições feitas aqui são temporárias para simulação. Ao recarregar a página ou clicar em Resetar, os dados oficiais da planilha retornam.</p>
         <h2 class="text-center text-xl font-bold text-slate-700 mt-4 mb-2">Visão Geral: <span id="lblFundefMain" class="text-blue-600">FUNDEF 1</span></h2>
 
-        <!-- KPIs GERAIS DO TOPO -->
+        <!-- KPIs GERAIS DO TOPO (Reordenados) -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-orange-500">
                 <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Solicitado</h3>
@@ -61,14 +58,6 @@
                 <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
                     <span>Orig: <b id="kpiSolOrig" class="text-slate-700">R$ 0</b></span>
                     <span>Reaj: <b id="kpiSolReaj" class="text-orange-600">R$ 0</b></span>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-red-500">
-                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Pendente</h3>
-                <p class="text-3xl font-bold text-red-700 mt-1" id="kpiPendNum">0</p>
-                <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
-                    <span>Orig: <b id="kpiPendOrig" class="text-slate-700">R$ 0</b></span>
-                    <span>Reaj: <b id="kpiPendReaj" class="text-red-600">R$ 0</b></span>
                 </div>
             </div>
             <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-green-500">
@@ -85,6 +74,14 @@
                 <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
                     <span>Orig: <b id="kpiEstOrig" class="text-slate-700">R$ 0</b></span>
                     <span>Reaj: <b id="kpiEstReaj" class="text-purple-600">R$ 0</b></span>
+                </div>
+            </div>
+            <div class="bg-white p-5 rounded-xl shadow-sm border-l-4 border-l-red-500">
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wide">Total Pendente</h3>
+                <p class="text-3xl font-bold text-red-700 mt-1" id="kpiPendNum">0</p>
+                <div class="mt-2 text-[10px] sm:text-xs text-slate-500 flex justify-between">
+                    <span>Orig: <b id="kpiPendOrig" class="text-slate-700">R$ 0</b></span>
+                    <span>Reaj: <b id="kpiPendReaj" class="text-red-600">R$ 0</b></span>
                 </div>
             </div>
         </div>
@@ -188,18 +185,19 @@
                         <tr>
                             <th rowspan="2" class="w-48 bg-slate-100">Produto / Item</th>
                             <th rowspan="2" class="text-center bg-slate-100 border-r-2 border-slate-300">Preço Unit.<br>(Orig / Reaj)</th>
-                            <th colspan="3" class="text-center bg-orange-50 text-orange-800 border-r-2 border-slate-300">DEMANDA GERAL (TODO O PERÍODO)</th>
+                            <th colspan="2" class="text-center bg-orange-50 text-orange-800 border-r-2 border-slate-300">DEMANDA GERAL</th>
                             <th colspan="3" id="thProd" class="text-center bg-blue-50 text-blue-800 border-r-2 border-slate-300">PRODUZIDO</th>
                             <th colspan="3" id="thEnt" class="text-center bg-green-50 text-green-800 border-r-2 border-slate-300">ENTREGUE</th>
-                            <th colspan="3" id="thEst" class="text-center bg-purple-50 text-purple-800">EM ESTOQUE</th>
+                            <th colspan="3" id="thEst" class="text-center bg-purple-50 text-purple-800 border-r-2 border-slate-300">EM ESTOQUE</th>
+                            <th colspan="1" class="text-center bg-red-50 text-red-800">SALDO FINAL</th>
                         </tr>
                         <tr>
                             <th class="text-center bg-orange-50">Solicitado</th>
-                            <th class="text-center bg-emerald-50">Entregue Total</th>
-                            <th class="text-center bg-red-50 border-r-2 border-slate-300">Pendente</th>
+                            <th class="text-center bg-emerald-50 border-r-2 border-slate-300">Entregue Total</th>
                             <th class="text-center bg-blue-50">Qtd</th><th class="text-center bg-blue-50">Val. Orig</th><th class="text-center bg-blue-50 border-r-2 border-slate-300">Val. Reaj</th>
                             <th class="text-center bg-green-50">Qtd</th><th class="text-center bg-green-50">Val. Orig</th><th class="text-center bg-green-50 border-r-2 border-slate-300">Val. Reaj</th>
-                            <th class="text-center bg-purple-50">Qtd</th><th class="text-center bg-purple-50">Val. Orig</th><th class="text-center bg-purple-50">Val. Reaj</th>
+                            <th class="text-center bg-purple-50">Qtd</th><th class="text-center bg-purple-50">Val. Orig</th><th class="text-center bg-purple-50 border-r-2 border-slate-300">Val. Reaj</th>
+                            <th class="text-center bg-red-50">Pendente</th>
                         </tr>
                     </thead>
                     <tbody id="tabelaBody"></tbody>
@@ -342,7 +340,7 @@
             updateTableAndKPIs(fData);
 
             if (rebuildSelectors) {
-                // LISTA APENAS COM OS PRODUTOS ANTIGOS (Para marcarem Checked por padrão)
+                // ITENS ANTIGOS: Pre-selecionados por padrão
                 const itensAntigos = [
                     'CARTEIRA ESCOLAR', 'CJ. ALUNO', 'CJ. REFEITÓRIO', 'CJ. PROFESSOR', 'CADEIRA FIXA EM POLIPROPILENO', 'LONGARINA',
                     'CJ. ALUNO TAM 6', 'CJ. REFEITÓRIO 8 LUGARES', 'ESTANTE ABERTA 4 PRATELEIRAS', 'ESTANTE ABERTA 8 PRATELEIRAS'
@@ -571,7 +569,8 @@
                     if(ts === 0 || (ts >= tsStart && ts <= tsEnd)) eQtd += e.qtd; 
                 });
 
-                let faltante = d.qtd_solicitada - eQtdTotal;
+                // NOVO CÁLCULO DE PENDENTE: Desconta Entregue E Estoque.
+                let faltante = d.qtd_solicitada - eQtdTotal - d.estoque_total;
                 if(faltante < 0) faltante = 0;
 
                 const rowVals = {
@@ -621,15 +620,10 @@
                             <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.sO)}</div>
                             <div class="text-[10px] text-orange-600 font-semibold">Reaj: ${formatMoney(rowVals.sR)}</div>
                         </td>
-                        <td class="text-center bg-emerald-50/50 align-middle">
+                        <td class="text-center bg-emerald-50/50 border-r-2 border-slate-300 align-middle">
                             <div class="font-bold text-emerald-700 text-sm">${rowVals.eTot.toLocaleString('pt-BR')} un</div>
                             <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.eTotO)}</div>
                             <div class="text-[10px] text-emerald-600 font-semibold">Reaj: ${formatMoney(rowVals.eTotR)}</div>
-                        </td>
-                        <td class="text-center bg-red-50/50 border-r-2 border-slate-300 align-middle">
-                            <div class="font-bold text-red-600 text-sm">${rowVals.fQ.toLocaleString('pt-BR')} un</div>
-                            <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.fO)}</div>
-                            <div class="text-[10px] text-red-500 font-semibold">Reaj: ${formatMoney(rowVals.fR)}</div>
                         </td>
 
                         <td class="text-center font-bold text-blue-700 bg-blue-50/30 align-middle">${tdProdQtdHtml}</td>
@@ -642,7 +636,13 @@
                         
                         <td class="text-center font-bold text-purple-700 bg-purple-50/30 align-middle">${tdEstoqueHtml}</td>
                         <td class="text-center text-slate-500 bg-purple-50/30 text-[11px] align-middle">${formatMoney(rowVals.estO)}</td>
-                        <td class="text-center text-purple-600 bg-purple-50/30 font-semibold text-[11px] align-middle">${formatMoney(rowVals.estR)}</td>
+                        <td class="text-center text-purple-600 bg-purple-50/30 font-semibold border-r-2 border-slate-300 text-[11px] align-middle">${formatMoney(rowVals.estR)}</td>
+
+                        <td class="text-center bg-red-50/50 align-middle">
+                            <div class="font-bold text-red-600 text-sm">${rowVals.fQ.toLocaleString('pt-BR')} un</div>
+                            <div class="text-[10px] text-slate-500 font-normal mt-1">Orig: ${formatMoney(rowVals.fO)}</div>
+                            <div class="text-[10px] text-red-500 font-semibold">Reaj: ${formatMoney(rowVals.fR)}</div>
+                        </td>
                     </tr>
                 `;
             });
@@ -656,15 +656,10 @@
                         <div class="text-[10px] text-slate-600 font-normal">O: ${formatMoney(sums.sO)}</div>
                         <div class="text-[10px] text-orange-800">R: ${formatMoney(sums.sR)}</div>
                     </td>
-                    <td class="text-center bg-emerald-200">
+                    <td class="text-center bg-emerald-200 border-r-2 border-slate-300">
                         <div class="text-sm text-slate-800">${sums.eTot.toLocaleString('pt-BR')} un</div>
                         <div class="text-[10px] text-slate-600 font-normal">O: ${formatMoney(sums.eTotO)}</div>
                         <div class="text-[10px] text-emerald-800">R: ${formatMoney(sums.eTotR)}</div>
-                    </td>
-                    <td class="text-center bg-red-200 border-r-2 border-slate-300">
-                        <div class="text-sm text-slate-800">${sums.fQ.toLocaleString('pt-BR')} un</div>
-                        <div class="text-[10px] text-slate-600 font-normal">O: ${formatMoney(sums.fO)}</div>
-                        <div class="text-[10px] text-red-800">R: ${formatMoney(sums.fR)}</div>
                     </td>
 
                     <td class="text-center bg-blue-200 text-sm text-slate-800">${sums.pQ.toLocaleString('pt-BR')}</td>
@@ -677,7 +672,13 @@
                     
                     <td class="text-center bg-purple-200 text-sm text-slate-800">${sums.estQ.toLocaleString('pt-BR')}</td>
                     <td class="text-center bg-purple-200 font-normal text-[10px] text-slate-600">${formatMoney(sums.estO)}</td>
-                    <td class="text-center bg-purple-200 text-[10px] text-purple-800">${formatMoney(sums.estR)}</td>
+                    <td class="text-center bg-purple-200 border-r-2 border-slate-300 text-[10px] text-purple-800">${formatMoney(sums.estR)}</td>
+
+                    <td class="text-center bg-red-200">
+                        <div class="text-sm text-slate-800">${sums.fQ.toLocaleString('pt-BR')} un</div>
+                        <div class="text-[10px] text-slate-600 font-normal">O: ${formatMoney(sums.fO)}</div>
+                        <div class="text-[10px] text-red-800">R: ${formatMoney(sums.fR)}</div>
+                    </td>
                 </tr>
             `;
 
