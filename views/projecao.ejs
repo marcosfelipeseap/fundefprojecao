@@ -23,11 +23,7 @@
         <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
             <div>
                 <h1 class="text-2xl md:text-3xl font-bold text-slate-800"><i class="fa-solid fa-calendar-days text-indigo-600 mr-2"></i> <%= titulo %></h1>
-<<<<<<< HEAD
-                <p class="text-slate-500 mt-1">Comparativo de Projeção Semanal (Sexta a Sexta) vs Produção Real</p>
-=======
                 <p class="text-slate-500 mt-1">Comparativo de Projeção Semanal vs Produção Real</p>
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
             </div>
             
             <div class="mt-6 md:mt-0 flex flex-wrap gap-3">
@@ -56,13 +52,8 @@
         </div>
 
         <!-- GRÁFICOS INDIVIDUAIS (GERADOS DINAMICAMENTE) -->
-<<<<<<< HEAD
-        <div id="chartsContainer" class="flex flex-col gap-6 mt-6">
-            <!-- Os gráficos de Qtd e Valor serão injetados aqui -->
-=======
         <div id="chartsContainer" class="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
             <!-- Os gráficos serão injetados aqui -->
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
         </div>
 
         <!-- TABELA EXECUTIVA -->
@@ -104,10 +95,6 @@
             if (!str) return '';
             return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
         }
-<<<<<<< HEAD
-        
-=======
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
         function cleanProc(str) {
             if (!str) return '';
             let s = String(str).trim();
@@ -115,17 +102,6 @@
             return sanitize(s);
         }
 
-<<<<<<< HEAD
-        const formatMoney = (val) => Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-        
-        function formatMoneyK(v) {
-            if (v >= 1000000) return 'R$ ' + (v/1000000).toFixed(1).replace('.',',') + 'M';
-            if (v >= 1000) return 'R$ ' + (v/1000).toFixed(0) + 'k';
-            return 'R$ ' + v.toLocaleString('pt-BR');
-        }
-
-=======
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
         async function initProjecao() {
             try {
                 const [resProj, resDados] = await Promise.all([
@@ -139,15 +115,6 @@
                 globalData = projRaw.map(p => {
                     const matchKey = cleanProc(p.processo) + "_" + sanitize(p.produto);
                     const actualItem = dadosRaw.find(d => d.matchKey === matchKey);
-<<<<<<< HEAD
-                    
-                    // Pega o valor do banco de dados (Reajustado. Se não houver, usa Original)
-                    p.preco_orig = actualItem ? actualItem.preco_orig : 0;
-                    p.preco_reaj = actualItem ? actualItem.preco_reaj : 0;
-                    p.preco_ativo = p.preco_reaj > 0 ? p.preco_reaj : p.preco_orig;
-                    
-=======
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                     const eventosProducao = actualItem ? actualItem.eventos_producao : [];
                     
                     const itemProcessado = calcularCurvas(p, eventosProducao);
@@ -180,19 +147,7 @@
             return 0; 
         }
 
-<<<<<<< HEAD
-        // Encontra a próxima sexta-feira a partir de um Timestamp (ou o próprio dia, se já for sexta)
-        function getNextFriday(ts) {
-            let d = new Date(ts);
-            let day = d.getDay(); // 0 = Domingo, 5 = Sexta
-            let diff = (5 - day + 7) % 7;
-            d.setDate(d.getDate() + diff);
-            return d.getTime();
-        }
-
-=======
         // NOVO PARSER PARA LIDAR COM STRINGS TIPO "500" ou "500,5" DENTRO DO ARRAY (Limpando sujeira)
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
         function parseLocalNumber(val) {
             if (val === null || val === undefined || val === '') return 0;
             if (typeof val === 'number') return val;
@@ -206,74 +161,13 @@
         }
 
         function calcularCurvas(item, eventos_producao) {
-<<<<<<< HEAD
-=======
             
             // NOVO: Separador de múltiplas datas e quantidades (usando ;)
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
             const rawDatas = String(item.data_inicio).split(';');
             const rawQtds = String(item.qtd_semanal).split(';');
             
             let periodos = [];
             for (let i = 0; i < rawDatas.length; i++) {
-<<<<<<< HEAD
-                let tsBruto = parseDataBRToTs(rawDatas[i]);
-                let rawQtd = rawQtds[i] !== undefined ? rawQtds[i] : rawQtds[rawQtds.length - 1];
-                let qtd = parseLocalNumber(rawQtd);
-                
-                if (tsBruto > 0) periodos.push({ ts: tsBruto, qtd: qtd, dateStr: rawDatas[i].trim() });
-            }
-            
-            periodos.sort((a, b) => a.ts - b.ts);
-            if (periodos.length === 0) return { ...item, historico: [] };
-
-            const tsInicioBruto = periodos[0].ts;
-            // Ajusta o início da linha do tempo para a PRIMEIRA SEXTA-FEIRA após a data de início da projeção
-            const tsInicioSexta = getNextFriday(tsInicioBruto);
-            
-            const anoAtual = new Date(tsInicioSexta).getFullYear();
-            const tsFimAno = new Date(anoAtual, 11, 31).getTime();
-            const tsHoje = new Date().getTime();
-
-            let historico = [];
-            let currentTs = tsInicioSexta;
-            
-            // Variável para amarrar o acumulado em blocos de 7 dias
-            let lastTs = tsInicioSexta - (7 * 86400000); 
-
-            let projAcumulada = 0;
-            let realAcumulada = 0;
-
-            // Inicia o gráfico no marco zero (na sexta-feira anterior ao início projetado)
-            historico.push({
-                ts: lastTs,
-                label: new Date(lastTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}),
-                proj: 0,
-                real: 0,
-                projVal: 0,
-                realVal: 0
-            });
-
-            // Caminha de sexta em sexta
-            while (currentTs <= tsFimAno) {
-                
-                // Determina a quantidade semanal desta fase da projeção
-                let activeQtd = periodos[0].qtd;
-                for (let p of periodos) {
-                    // Considera que entrou na fase se o dia da semana atual já encostou na data planejada
-                    if (currentTs >= p.ts) activeQtd = p.qtd;
-                }
-                
-                // Soma a Projeção (Limitada à Meta)
-                projAcumulada += activeQtd;
-                if (projAcumulada > item.faltante) projAcumulada = item.faltante;
-                
-                // Soma o Realizado apenas entre a sexta passada e esta sexta
-                let sumSemana = 0;
-                eventos_producao.forEach(e => {
-                    const eTs = parseDataBRToTs(e.data);
-                    if (eTs > lastTs && eTs <= currentTs && eTs >= tsInicioBruto) {
-=======
                 let ts = parseDataBRToTs(rawDatas[i]);
                 
                 // Se a pessoa colocou 3 datas, mas só 2 quantidades, repete a última quantidade
@@ -339,31 +233,11 @@
                 eventos_producao.forEach(e => {
                     const eTs = parseDataBRToTs(e.data);
                     if (eTs > currentTs && eTs <= nextTs && eTs >= tsInicio) {
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                         sumSemana += e.qtd;
                     }
                 });
                 realAcumulada += sumSemana;
 
-<<<<<<< HEAD
-                // REGRA DO REALIZADO: Só exibe se já chegamos nesta sexta, OU se tem produção antecipada nela
-                let showReal = currentTs <= tsHoje || sumSemana > 0;
-
-                historico.push({
-                    ts: currentTs,
-                    label: new Date(currentTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}),
-                    proj: projAcumulada,
-                    real: showReal ? realAcumulada : null, 
-                    projVal: projAcumulada * item.preco_ativo,
-                    realVal: showReal ? (realAcumulada * item.preco_ativo) : null
-                });
-
-                lastTs = currentTs;
-                currentTs += (7 * 86400000);
-            }
-
-            item.periodos = periodos; 
-=======
                 let showReal = currentTs <= limiteRealTs;
 
                 historico.push({
@@ -378,7 +252,6 @@
             }
 
             item.periodos = periodos; // Guardado para fazer os crachás na tela
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
             item.historico = historico;
             item.proj_fim_ano = projAcumulada;
             item.real_total_atual = realAcumulada;
@@ -443,10 +316,7 @@
                     statusReal = `<span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap"><i class="fa-solid fa-person-running mr-1"></i> Faltam ${deficit.toLocaleString('pt-BR')} un</span>`;
                 }
 
-<<<<<<< HEAD
-=======
                 // Renderiza múltiplas datas e quantidades na tabela caso haja mais de 1 período cadastrado
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                 let datasHtml = d.periodos.map(p => p.dateStr).join('<br><span class="text-[10px] text-indigo-400 font-bold">↳</span> ');
                 let qtdsHtml = d.periodos.map(p => p.qtd.toLocaleString('pt-BR') + ' <span class="text-[10px]">/sem</span>').join('<br><span class="text-[10px] text-indigo-400 font-bold">↳</span> ');
 
@@ -477,15 +347,9 @@
             }
 
             data.forEach((item, index) => {
-<<<<<<< HEAD
-                const chartIdQtd = `chart_item_qtd_${index}`;
-                const chartIdVal = `chart_item_val_${index}`;
-                
-=======
                 const chartId = `chart_item_${index}`;
                 
                 // Constrói os crachás de meta dinamicamente para suportar 1, 2, 3 datas...
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                 let metasHtml = item.periodos.map(p => `
                     <div class="mt-1 bg-indigo-50 text-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm flex items-center justify-between gap-3 w-full">
                         <span class="text-[10px] font-bold uppercase whitespace-nowrap"><i class="fa-regular fa-calendar mr-1"></i> A partir de ${p.dateStr}:</span>
@@ -493,35 +357,6 @@
                     </div>
                 `).join('');
 
-<<<<<<< HEAD
-                let metaValor = item.faltante * item.preco_ativo;
-
-                const colDiv = document.createElement('div');
-                colDiv.className = 'bg-white p-6 rounded-2xl shadow-sm border border-slate-200 w-full';
-                colDiv.innerHTML = `
-                    <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-6 border-b border-slate-100 pb-5">
-                        <div class="w-full md:w-1/2">
-                            <h3 class="text-xl font-bold text-slate-800">${item.produto}</h3>
-                            <p class="text-xs font-mono text-slate-400 mt-1">PROCESSO: ${item.processo}</p>
-                            
-                            <div class="mt-4 flex gap-4 text-xs">
-                                <div class="bg-slate-50 border border-slate-200 rounded px-3 py-2">
-                                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Preço Ativo</span>
-                                    <span class="font-bold text-slate-700 text-sm">${formatMoney(item.preco_ativo)}</span>
-                                </div>
-                                <div class="bg-emerald-50 border border-emerald-100 rounded px-3 py-2 text-emerald-800">
-                                    <span class="block text-[10px] font-bold uppercase">Realizado Total</span>
-                                    <span class="font-bold text-sm">${item.real_total_atual.toLocaleString('pt-BR')} un</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="text-right flex flex-col items-end w-full md:w-1/2 max-w-[280px]">
-                            <span class="block text-[11px] font-bold text-slate-400 uppercase">Faltante Atual (Meta)</span>
-                            <span class="block text-2xl font-bold text-red-600 mb-1">${item.faltante.toLocaleString('pt-BR')} un</span>
-                            <span class="block text-xs font-semibold text-red-400 mb-3">${formatMoney(metaValor)}</span>
-                            
-=======
                 const colDiv = document.createElement('div');
                 colDiv.className = 'bg-white p-6 rounded-2xl shadow-sm border border-slate-200';
                 colDiv.innerHTML = `
@@ -535,71 +370,32 @@
                             <span class="block text-lg font-bold text-red-600 mb-1">${item.faltante.toLocaleString('pt-BR')} un</span>
                             
                             <!-- DESTAQUES DAS METAS E FASES -->
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                             <div class="flex flex-col w-full">
                                 ${metasHtml}
                             </div>
                         </div>
                     </div>
-<<<<<<< HEAD
-                    
-                    <!-- GRID COM OS DOIS GRÁFICOS (FÍSICO E FINANCEIRO) -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div class="bg-slate-50/50 rounded-xl p-3 border border-slate-100 relative">
-                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-boxes-stacked mr-1"></i> Projeção Física (Quantidades)</h4>
-                            <div class="relative h-[300px] w-full">
-                                <canvas id="${chartIdQtd}"></canvas>
-                            </div>
-                        </div>
-                        <div class="bg-slate-50/50 rounded-xl p-3 border border-slate-100 relative">
-                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-money-bill-trend-up mr-1"></i> Projeção Financeira (Valores)</h4>
-                            <div class="relative h-[300px] w-full">
-                                <canvas id="${chartIdVal}"></canvas>
-                            </div>
-                        </div>
-=======
                     <div class="relative h-[280px] w-full">
                         <canvas id="${chartId}"></canvas>
                     </div>
                     <div class="mt-4 pt-4 border-t border-slate-100 flex justify-between text-xs text-slate-500">
                         <span>Produção Realizada: <b class="text-emerald-600">${item.real_total_atual.toLocaleString('pt-BR')}</b> un</span>
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                     </div>
                 `;
                 container.appendChild(colDiv);
 
                 const labels = item.historico.map(h => h.label);
-<<<<<<< HEAD
-                const valProjQtd = item.historico.map(h => h.proj);
-                const valRealQtd = item.historico.map(h => h.real);
-                const valProjVal = item.historico.map(h => h.projVal);
-                const valRealVal = item.historico.map(h => h.realVal);
-
-                // --- GRÁFICO FÍSICO (QTD) ---
-                const ctxQtd = document.getElementById(chartIdQtd).getContext('2d');
-                chartInstances[chartIdQtd] = new Chart(ctxQtd, {
-=======
                 const valProj = item.historico.map(h => h.proj);
                 const valReal = item.historico.map(h => h.real);
 
                 const ctx = document.getElementById(chartId).getContext('2d');
 
                 chartInstances[chartId] = new Chart(ctx, {
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                     type: 'line',
                     data: {
                         labels: labels,
                         datasets: [
                             {
-<<<<<<< HEAD
-                                label: 'Realizado (Acumulado)',
-                                data: valRealQtd,
-                                borderColor: '#10b981',
-                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
-                                borderWidth: 3, fill: true, tension: 0.1, pointRadius: 4,
-                                datalabels: {
-                                    align: 'bottom', color: '#047857', font: { size: 9, weight: 'bold' },
-=======
                                 label: 'Realizado na Semana (Acumulado)',
                                 data: valReal,
                                 borderColor: '#10b981',
@@ -612,24 +408,11 @@
                                     align: 'bottom',
                                     color: '#047857',
                                     font: { size: 9, weight: 'bold' },
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                                     formatter: (v) => (v !== null && v > 0) ? v.toLocaleString('pt-BR') : ''
                                 }
                             },
                             {
                                 label: 'Projeção Cumulativa',
-<<<<<<< HEAD
-                                data: valProjQtd,
-                                borderColor: '#3b82f6',
-                                backgroundColor: 'transparent',
-                                borderWidth: 2, borderDash: [2, 2], tension: 0.1, pointRadius: 3,
-                                datalabels: {
-                                    align: 'top', color: '#1d4ed8', font: { size: 9, weight: 'bold' },
-                                    formatter: (v, ctx) => {
-                                        if (v <= 0) return '';
-                                        const ds = ctx.dataset.data;
-                                        if (ctx.dataIndex > 0 && v === ds[ctx.dataIndex - 1]) return '';
-=======
                                 data: valProj,
                                 borderColor: '#3b82f6',
                                 backgroundColor: 'transparent',
@@ -645,89 +428,12 @@
                                         if (v <= 0) return '';
                                         const dataset = context.dataset.data;
                                         if (context.dataIndex > 0 && v === dataset[context.dataIndex - 1]) return '';
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
                                         return v.toLocaleString('pt-BR');
                                     }
                                 }
                             }
                         ]
                     },
-<<<<<<< HEAD
-                    options: getChartOptions('qtd', item.faltante)
-                });
-
-                // --- GRÁFICO FINANCEIRO (VALOR) ---
-                const ctxVal = document.getElementById(chartIdVal).getContext('2d');
-                chartInstances[chartIdVal] = new Chart(ctxVal, {
-                    type: 'line',
-                    data: {
-                        labels: labels,
-                        datasets: [
-                            {
-                                label: 'Realizado R$ (Acumulado)',
-                                data: valRealVal,
-                                borderColor: '#059669', // Verde escuro
-                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                                borderWidth: 3, fill: true, tension: 0.1, pointRadius: 4,
-                                datalabels: {
-                                    align: 'bottom', color: '#065f46', font: { size: 9, weight: 'bold' },
-                                    formatter: (v) => (v !== null && v > 0) ? formatMoneyK(v) : ''
-                                }
-                            },
-                            {
-                                label: 'Projeção R$ (Cumulativa)',
-                                data: valProjVal,
-                                borderColor: '#4f46e5', // Indigo
-                                backgroundColor: 'transparent',
-                                borderWidth: 2, borderDash: [2, 2], tension: 0.1, pointRadius: 3,
-                                datalabels: {
-                                    align: 'top', color: '#3730a3', font: { size: 9, weight: 'bold' },
-                                    formatter: (v, ctx) => {
-                                        if (v <= 0) return '';
-                                        const ds = ctx.dataset.data;
-                                        if (ctx.dataIndex > 0 && v === ds[ctx.dataIndex - 1]) return '';
-                                        return formatMoneyK(v);
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                    options: getChartOptions('val', metaValor)
-                });
-            });
-        }
-
-        // Configuração reaproveitável do Chart.js para manter ambos consistentes
-        function getChartOptions(type, maxLimit) {
-            return {
-                responsive: true,
-                maintainAspectRatio: false,
-                layout: { padding: { top: 25, right: 15, bottom: 5, left: 5 } },
-                plugins: {
-                    legend: { position: 'top', labels: { boxWidth: 12, font: {size: 10} } },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                if(context.parsed.y === null) return '';
-                                let valStr = type === 'val' ? formatMoney(context.parsed.y) : context.parsed.y.toLocaleString('pt-BR') + ' un';
-                                return context.dataset.label + ': ' + valStr;
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: { 
-                        beginAtZero: true,
-                        suggestedMax: maxLimit + (maxLimit * 0.15),
-                        ticks: { 
-                            font: {size: 9},
-                            callback: (v) => type === 'val' ? formatMoneyK(v) : v.toLocaleString('pt-BR')
-                        }
-                    },
-                    x: { ticks: { font: {size: 9} } }
-                }
-            };
-=======
                     options: {
                         responsive: true,
                         maintainAspectRatio: false,
@@ -759,7 +465,6 @@
                     }
                 });
             });
->>>>>>> 3242620c0bcf0b37de2f727e8c04b8d3ea45d634
         }
 
         initProjecao();
