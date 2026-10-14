@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= titulo %></title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        table th { background-color: #f8fafc; text-transform: uppercase; font-size: 0.70rem; letter-spacing: 0.05em; color: #475569; padding: 12px; border-bottom: 2px solid #e2e8f0; }
+        table td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 0.85rem; color: #1e293b; }
+        table tbody tr:hover { background-color: #f1f5f9; }
+        .item-checkbox:checked + span { background-color: #4f46e5; color: white; border-color: #4f46e5; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4); }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased p-4 md:p-8">
+
+    <div class="max-w-[1500px] mx-auto space-y-6">
+        
+        <!-- Cabeçalho & Navegação -->
+        <div class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <div>
+                <h1 class="text-2xl md:text-3xl font-bold text-slate-800"><i class="fa-solid fa-calendar-days text-indigo-600 mr-2"></i> <%= titulo %></h1>
+                <p class="text-slate-500 mt-1">Comparativo de Projeção Semanal (Sexta a Sexta) vs Produção Real</p>
+            </div>
+            
+            <div class="mt-6 md:mt-0 flex flex-wrap gap-3">
+                <a href="/" class="bg-slate-100 text-slate-700 px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-slate-200 transition-colors shadow-sm border border-slate-300 flex items-center">
+                    <i class="fa-solid fa-chart-line mr-2"></i> Dashboard
+                </a>
+                <a href="/simulador" class="bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-bold text-sm hover:bg-emerald-700 transition-colors shadow-md border border-emerald-700 flex items-center">
+                    <i class="fa-solid fa-calculator mr-2"></i> Simulador
+                </a>
+            </div>
+        </div>
+
+        <!-- FILTROS POR ITEM -->
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200">
+            <div class="flex justify-between items-center mb-3">
+                <h3 class="text-sm font-bold text-slate-700"><i class="fa-solid fa-filter text-indigo-600 mr-2"></i> Filtrar Gráficos e Tabela por Produto</h3>
+                <div class="space-x-2">
+                    <button onclick="toggleAllFilters(true)" class="text-xs font-semibold text-indigo-600 hover:underline">Marcar Todos</button>
+                    <span class="text-slate-300">|</span>
+                    <button onclick="toggleAllFilters(false)" class="text-xs font-semibold text-slate-500 hover:underline">Desmarcar Todos</button>
+                </div>
+            </div>
+            <div id="filterContainer" class="flex flex-wrap gap-2">
+                <span class="text-sm text-slate-400 italic">Carregando dados...</span>
+            </div>
+        </div>
+
+        <!-- GRÁFICOS INDIVIDUAIS (GERADOS DINAMICAMENTE) -->
+        <div id="chartsContainer" class="flex flex-col gap-6 mt-6">
+            <!-- Os gráficos de Qtd e Valor serão injetados aqui -->
+        </div>
+
+        <!-- TABELA EXECUTIVA -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">Status Geral do Cenário até 31 de Dezembro</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[1200px]">
+                    <thead>
+                        <tr>
+                            <th>Processo</th>
+                            <th>Produto / Item</th>
+                            <th class="text-center">Fases da Projeção (Início)</th>
+                            <th class="text-center">Qtd Semanal na Fase</th>
+                            <th class="text-center text-red-700 bg-red-50 font-bold border-l border-slate-200">Faltante Total</th>
+                            <th class="text-center text-blue-700 bg-blue-50 font-bold">Projeção (Limitada)</th>
+                            <th class="text-center text-emerald-700 bg-emerald-50 font-bold">Produzido Real Atual</th>
+                            <th class="text-center bg-slate-100 border-l border-slate-200">Status da Produção Real</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabelaProjecaoBody">
+                        <tr><td colspan="8" class="text-center text-slate-500 italic py-8">Carregando dados...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        Chart.register(ChartDataLabels);
+        
+        let globalData = [];
+        let selectedItems = new Set();
+        let chartInstances = {};
+
+        function sanitize(str) {
+            if (!str) return '';
+            return String(str).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        }
+        
+        function cleanProc(str) {
+            if (!str) return '';
+            let s = String(str).trim();
+            s = s.replace(/,0+$/, '').replace(/\.0+$/, '');
+            return sanitize(s);
+        }
+
+        const formatMoney = (val) => Number(val).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        
+        function formatMoneyK(v) {
+            if (v >= 1000000) return 'R$ ' + (v/1000000).toFixed(1).replace('.',',') + 'M';
+            if (v >= 1000) return 'R$ ' + (v/1000).toFixed(0) + 'k';
+            return 'R$ ' + v.toLocaleString('pt-BR');
+        }
+
+        async function initProjecao() {
+            try {
+                const [resProj, resDados] = await Promise.all([
+                    fetch('/api/projecao'),
+                    fetch('/api/dados')
+                ]);
+                
+                const projRaw = await resProj.json();
+                const dadosRaw = await resDados.json();
+                
+                globalData = projRaw.map(p => {
+                    const matchKey = cleanProc(p.processo) + "_" + sanitize(p.produto);
+                    const actualItem = dadosRaw.find(d => d.matchKey === matchKey);
+                    
+                    // Pega o valor do banco de dados (Reajustado. Se não houver, usa Original)
+                    p.preco_orig = actualItem ? actualItem.preco_orig : 0;
+                    p.preco_reaj = actualItem ? actualItem.preco_reaj : 0;
+                    p.preco_ativo = p.preco_reaj > 0 ? p.preco_reaj : p.preco_orig;
+                    
+                    const eventosProducao = actualItem ? actualItem.eventos_producao : [];
+                    
+                    const itemProcessado = calcularCurvas(p, eventosProducao);
+                    itemProcessado.uniqueKey = matchKey;
+                    return itemProcessado;
+                }).filter(d => d.historico.length > 0);
+
+                globalData.forEach(d => selectedItems.add(d.uniqueKey));
+
+                renderFilters();
+                updateView();
+                
+            } catch (error) {
+                console.error(error);
+                document.getElementById('tabelaProjecaoBody').innerHTML = `<tr><td colspan="8" class="text-center text-red-500 py-8">Erro ao carregar dados.</td></tr>`;
+                document.getElementById('filterContainer').innerHTML = `<span class="text-red-500 text-sm">Erro ao carregar.</span>`;
+            }
+        }
+
+        function parseDataBRToTs(dataStr) {
+            if(!dataStr || dataStr === 'S/D') return 0;
+            let str = String(dataStr).trim().split(' ')[0];
+            if(str.includes('/')) {
+                const p = str.split('/');
+                if(p.length === 3) return p[0].length === 4 ? new Date(p[0], p[1]-1, p[2]).getTime() : new Date(p[2], p[1]-1, p[0]).getTime();
+            } else if(str.includes('-')) {
+                const p = str.split('-');
+                if(p.length === 3) return p[0].length === 4 ? new Date(p[0], p[1]-1, p[2]).getTime() : new Date(p[2], p[1]-1, p[0]).getTime();
+            }
+            return 0; 
+        }
+
+        // Encontra a próxima sexta-feira a partir de um Timestamp (ou o próprio dia, se já for sexta)
+        function getNextFriday(ts) {
+            let d = new Date(ts);
+            let day = d.getDay(); // 0 = Domingo, 5 = Sexta
+            let diff = (5 - day + 7) % 7;
+            d.setDate(d.getDate() + diff);
+            return d.getTime();
+        }
+
+        function parseLocalNumber(val) {
+            if (val === null || val === undefined || val === '') return 0;
+            if (typeof val === 'number') return val;
+            let s = String(val).trim().replace(/[^\d.,\-]/g, '');
+            if (s.includes(',') && s.includes('.')) {
+                if (s.lastIndexOf(',') > s.lastIndexOf('.')) s = s.replace(/\./g, '').replace(',', '.');
+                else s = s.replace(/,/g, '');
+            } else if (s.includes(',')) s = s.replace(',', '.');
+            else if (s.includes('.') && s.split('.').pop().length === 3) s = s.replace(/\./g, '');
+            return parseFloat(s) || 0;
+        }
+
+        function calcularCurvas(item, eventos_producao) {
+            const rawDatas = String(item.data_inicio).split(';');
+            const rawQtds = String(item.qtd_semanal).split(';');
+            
+            let periodos = [];
+            for (let i = 0; i < rawDatas.length; i++) {
+                let tsBruto = parseDataBRToTs(rawDatas[i]);
+                let rawQtd = rawQtds[i] !== undefined ? rawQtds[i] : rawQtds[rawQtds.length - 1];
+                let qtd = parseLocalNumber(rawQtd);
+                
+                if (tsBruto > 0) periodos.push({ ts: tsBruto, qtd: qtd, dateStr: rawDatas[i].trim() });
+            }
+            
+            periodos.sort((a, b) => a.ts - b.ts);
+            if (periodos.length === 0) return { ...item, historico: [] };
+
+            const tsInicioBruto = periodos[0].ts;
+            // Ajusta o início da linha do tempo para a PRIMEIRA SEXTA-FEIRA após a data de início da projeção
+            const tsInicioSexta = getNextFriday(tsInicioBruto);
+            
+            const anoAtual = new Date(tsInicioSexta).getFullYear();
+            const tsFimAno = new Date(anoAtual, 11, 31).getTime();
+            const tsHoje = new Date().getTime();
+
+            let historico = [];
+            let currentTs = tsInicioSexta;
+            
+            // Variável para amarrar o acumulado em blocos de 7 dias
+            let lastTs = tsInicioSexta - (7 * 86400000); 
+
+            let projAcumulada = 0;
+            let realAcumulada = 0;
+
+            // Inicia o gráfico no marco zero (na sexta-feira anterior ao início projetado)
+            historico.push({
+                ts: lastTs,
+                label: new Date(lastTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}),
+                proj: 0,
+                real: 0,
+                projVal: 0,
+                realVal: 0
+            });
+
+            // Caminha de sexta em sexta
+            while (currentTs <= tsFimAno) {
+                
+                // Determina a quantidade semanal desta fase da projeção
+                let activeQtd = periodos[0].qtd;
+                for (let p of periodos) {
+                    // Considera que entrou na fase se o dia da semana atual já encostou na data planejada
+                    if (currentTs >= p.ts) activeQtd = p.qtd;
+                }
+                
+                // Soma a Projeção (Limitada à Meta)
+                projAcumulada += activeQtd;
+                if (projAcumulada > item.faltante) projAcumulada = item.faltante;
+                
+                // Soma o Realizado apenas entre a sexta passada e esta sexta
+                let sumSemana = 0;
+                eventos_producao.forEach(e => {
+                    const eTs = parseDataBRToTs(e.data);
+                    if (eTs > lastTs && eTs <= currentTs && eTs >= tsInicioBruto) {
+                        sumSemana += e.qtd;
+                    }
+                });
+                realAcumulada += sumSemana;
+
+                // REGRA DO REALIZADO: Só exibe se já chegamos nesta sexta, OU se tem produção antecipada nela
+                let showReal = currentTs <= tsHoje || sumSemana > 0;
+
+                historico.push({
+                    ts: currentTs,
+                    label: new Date(currentTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}),
+                    proj: projAcumulada,
+                    real: showReal ? realAcumulada : null, 
+                    projVal: projAcumulada * item.preco_ativo,
+                    realVal: showReal ? (realAcumulada * item.preco_ativo) : null
+                });
+
+                lastTs = currentTs;
+                currentTs += (7 * 86400000);
+            }
+
+            item.periodos = periodos; 
+            item.historico = historico;
+            item.proj_fim_ano = projAcumulada;
+            item.real_total_atual = realAcumulada;
+
+            return item;
+        }
+
+        // ==========================
+        // UI & RENDERS
+        // ==========================
+        function renderFilters() {
+            const container = document.getElementById('filterContainer');
+            container.innerHTML = '';
+            
+            globalData.forEach(d => {
+                const isChecked = selectedItems.has(d.uniqueKey) ? 'checked' : '';
+                container.innerHTML += `
+                    <label class="cursor-pointer">
+                        <input type="checkbox" value="${d.uniqueKey}" ${isChecked} class="item-checkbox hidden" onchange="toggleItem('${d.uniqueKey}', this.checked)">
+                        <span class="px-3 py-1.5 rounded-full border border-slate-300 text-xs font-semibold text-slate-600 transition-colors inline-block select-none">${d.produto}</span>
+                    </label>
+                `;
+            });
+        }
+
+        window.toggleItem = function(key, isChecked) {
+            if (isChecked) selectedItems.add(key);
+            else selectedItems.delete(key);
+            updateView();
+        };
+
+        window.toggleAllFilters = function(check) {
+            if (check) globalData.forEach(d => selectedItems.add(d.uniqueKey));
+            else selectedItems.clear();
+            renderFilters();
+            updateView();
+        };
+
+        function updateView() {
+            const filteredData = globalData.filter(d => selectedItems.has(d.uniqueKey));
+            renderTable(filteredData);
+            renderChartsGrid(filteredData);
+        }
+
+        function renderTable(data) {
+            const tbody = document.getElementById('tabelaProjecaoBody');
+            tbody.innerHTML = '';
+
+            if (data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="8" class="text-center text-slate-500 py-8">Nenhum produto selecionado.</td></tr>`;
+                return;
+            }
+
+            data.forEach(d => {
+                const tr = document.createElement('tr');
+                
+                let statusReal = '';
+                if (d.real_total_atual >= d.faltante) {
+                    statusReal = `<span class="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap"><i class="fa-solid fa-check-double mr-1"></i> Meta Atingida!</span>`;
+                } else {
+                    let deficit = d.faltante - d.real_total_atual;
+                    statusReal = `<span class="bg-orange-100 text-orange-700 px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap"><i class="fa-solid fa-person-running mr-1"></i> Faltam ${deficit.toLocaleString('pt-BR')} un</span>`;
+                }
+
+                let datasHtml = d.periodos.map(p => p.dateStr).join('<br><span class="text-[10px] text-indigo-400 font-bold">↳</span> ');
+                let qtdsHtml = d.periodos.map(p => p.qtd.toLocaleString('pt-BR') + ' <span class="text-[10px]">/sem</span>').join('<br><span class="text-[10px] text-indigo-400 font-bold">↳</span> ');
+
+                tr.innerHTML = `
+                    <td class="font-mono text-xs text-slate-500 align-middle">${d.processo}</td>
+                    <td class="font-bold text-slate-700 align-middle">${d.produto}</td>
+                    <td class="text-center text-slate-600 align-middle">${datasHtml}</td>
+                    <td class="text-center text-blue-600 font-semibold align-middle">${qtdsHtml}</td>
+                    <td class="text-center font-bold text-red-600 bg-red-50/50 border-l border-slate-200 align-middle">${d.faltante.toLocaleString('pt-BR')}</td>
+                    <td class="text-center font-bold text-blue-600 bg-blue-50/50 align-middle">${d.proj_fim_ano.toLocaleString('pt-BR')}</td>
+                    <td class="text-center font-bold text-emerald-700 bg-emerald-50/50 text-lg align-middle">${d.real_total_atual.toLocaleString('pt-BR')}</td>
+                    <td class="text-center border-l border-slate-200 align-middle">${statusReal}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function renderChartsGrid(data) {
+            const container = document.getElementById('chartsContainer');
+            
+            Object.values(chartInstances).forEach(c => c.destroy());
+            chartInstances = {};
+            container.innerHTML = '';
+
+            if (data.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center text-slate-500 py-10 bg-white rounded-2xl border border-slate-200 shadow-sm">Selecione ao menos um produto para exibir os gráficos.</div>`;
+                return;
+            }
+
+            data.forEach((item, index) => {
+                const chartIdQtd = `chart_item_qtd_${index}`;
+                const chartIdVal = `chart_item_val_${index}`;
+                
+                let metasHtml = item.periodos.map(p => `
+                    <div class="mt-1 bg-indigo-50 text-indigo-800 px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm flex items-center justify-between gap-3 w-full">
+                        <span class="text-[10px] font-bold uppercase whitespace-nowrap"><i class="fa-regular fa-calendar mr-1"></i> A partir de ${p.dateStr}:</span>
+                        <span class="text-sm font-black whitespace-nowrap">${p.qtd.toLocaleString('pt-BR')} <span class="text-[9px] font-bold text-indigo-600">un/sem</span></span>
+                    </div>
+                `).join('');
+
+                let metaValor = item.faltante * item.preco_ativo;
+
+                const colDiv = document.createElement('div');
+                colDiv.className = 'bg-white p-6 rounded-2xl shadow-sm border border-slate-200 w-full';
+                colDiv.innerHTML = `
+                    <div class="flex flex-col md:flex-row justify-between items-start mb-6 gap-6 border-b border-slate-100 pb-5">
+                        <div class="w-full md:w-1/2">
+                            <h3 class="text-xl font-bold text-slate-800">${item.produto}</h3>
+                            <p class="text-xs font-mono text-slate-400 mt-1">PROCESSO: ${item.processo}</p>
+                            
+                            <div class="mt-4 flex gap-4 text-xs">
+                                <div class="bg-slate-50 border border-slate-200 rounded px-3 py-2">
+                                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Preço Ativo</span>
+                                    <span class="font-bold text-slate-700 text-sm">${formatMoney(item.preco_ativo)}</span>
+                                </div>
+                                <div class="bg-emerald-50 border border-emerald-100 rounded px-3 py-2 text-emerald-800">
+                                    <span class="block text-[10px] font-bold uppercase">Realizado Total</span>
+                                    <span class="font-bold text-sm">${item.real_total_atual.toLocaleString('pt-BR')} un</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="text-right flex flex-col items-end w-full md:w-1/2 max-w-[280px]">
+                            <span class="block text-[11px] font-bold text-slate-400 uppercase">Faltante Atual (Meta)</span>
+                            <span class="block text-2xl font-bold text-red-600 mb-1">${item.faltante.toLocaleString('pt-BR')} un</span>
+                            <span class="block text-xs font-semibold text-red-400 mb-3">${formatMoney(metaValor)}</span>
+                            
+                            <div class="flex flex-col w-full">
+                                ${metasHtml}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- GRID COM OS DOIS GRÁFICOS (FÍSICO E FINANCEIRO) -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-slate-50/50 rounded-xl p-3 border border-slate-100 relative">
+                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-boxes-stacked mr-1"></i> Projeção Física (Quantidades)</h4>
+                            <div class="relative h-[300px] w-full">
+                                <canvas id="${chartIdQtd}"></canvas>
+                            </div>
+                        </div>
+                        <div class="bg-slate-50/50 rounded-xl p-3 border border-slate-100 relative">
+                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-money-bill-trend-up mr-1"></i> Projeção Financeira (Valores)</h4>
+                            <div class="relative h-[300px] w-full">
+                                <canvas id="${chartIdVal}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(colDiv);
+
+                const labels = item.historico.map(h => h.label);
+                const valProjQtd = item.historico.map(h => h.proj);
+                const valRealQtd = item.historico.map(h => h.real);
+                const valProjVal = item.historico.map(h => h.projVal);
+                const valRealVal = item.historico.map(h => h.realVal);
+
+                // --- GRÁFICO FÍSICO (QTD) ---
+                const ctxQtd = document.getElementById(chartIdQtd).getContext('2d');
+                chartInstances[chartIdQtd] = new Chart(ctxQtd, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Realizado (Acumulado)',
+                                data: valRealQtd,
+                                borderColor: '#10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                borderWidth: 3, fill: true, tension: 0.1, pointRadius: 4,
+                                datalabels: {
+                                    align: 'bottom', color: '#047857', font: { size: 9, weight: 'bold' },
+                                    formatter: (v) => (v !== null && v > 0) ? v.toLocaleString('pt-BR') : ''
+                                }
+                            },
+                            {
+                                label: 'Projeção Cumulativa',
+                                data: valProjQtd,
+                                borderColor: '#3b82f6',
+                                backgroundColor: 'transparent',
+                                borderWidth: 2, borderDash: [2, 2], tension: 0.1, pointRadius: 3,
+                                datalabels: {
+                                    align: 'top', color: '#1d4ed8', font: { size: 9, weight: 'bold' },
+                                    formatter: (v, ctx) => {
+                                        if (v <= 0) return '';
+                                        const ds = ctx.dataset.data;
+                                        if (ctx.dataIndex > 0 && v === ds[ctx.dataIndex - 1]) return '';
+                                        return v.toLocaleString('pt-BR');
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    options: getChartOptions('qtd', item.faltante)
+                });
+
+                // --- GRÁFICO FINANCEIRO (VALOR) ---
+                const ctxVal = document.getElementById(chartIdVal).getContext('2d');
+                chartInstances[chartIdVal] = new Chart(ctxVal, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [
+                            {
+                                label: 'Realizado R$ (Acumulado)',
+                                data: valRealVal,
+                                borderColor: '#059669', // Verde escuro
+                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                borderWidth: 3, fill: true, tension: 0.1, pointRadius: 4,
+                                datalabels: {
+                                    align: 'bottom', color: '#065f46', font: { size: 9, weight: 'bold' },
+                                    formatter: (v) => (v !== null && v > 0) ? formatMoneyK(v) : ''
+                                }
+                            },
+                            {
+                                label: 'Projeção R$ (Cumulativa)',
+                                data: valProjVal,
+                                borderColor: '#4f46e5', // Indigo
+                                backgroundColor: 'transparent',
+                                borderWidth: 2, borderDash: [2, 2], tension: 0.1, pointRadius: 3,
+                                datalabels: {
+                                    align: 'top', color: '#3730a3', font: { size: 9, weight: 'bold' },
+                                    formatter: (v, ctx) => {
+                                        if (v <= 0) return '';
+                                        const ds = ctx.dataset.data;
+                                        if (ctx.dataIndex > 0 && v === ds[ctx.dataIndex - 1]) return '';
+                                        return formatMoneyK(v);
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    options: getChartOptions('val', metaValor)
+                });
+            });
+        }
+
+        // Configuração reaproveitável do Chart.js para manter ambos consistentes
+        function getChartOptions(type, maxLimit) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 25, right: 15, bottom: 5, left: 5 } },
+                plugins: {
+                    legend: { position: 'top', labels: { boxWidth: 12, font: {size: 10} } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if(context.parsed.y === null) return '';
+                                let valStr = type === 'val' ? formatMoney(context.parsed.y) : context.parsed.y.toLocaleString('pt-BR') + ' un';
+                                return context.dataset.label + ': ' + valStr;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: { 
+                        beginAtZero: true,
+                        suggestedMax: maxLimit + (maxLimit * 0.15),
+                        ticks: { 
+                            font: {size: 9},
+                            callback: (v) => type === 'val' ? formatMoneyK(v) : v.toLocaleString('pt-BR')
+                        }
+                    },
+                    x: { ticks: { font: {size: 9} } }
+                }
+            };
+        }
+
+        initProjecao();
+    </script>
+</body>
+</html>
