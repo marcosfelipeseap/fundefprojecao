@@ -51,15 +51,15 @@
             </div>
         </div>
 
-        <!-- GRÁFICOS INDIVIDUAIS (GERADOS DINAMICAMENTE) -->
+        <!-- GRÁFICOS INDIVIDUAIS -->
         <div id="chartsContainer" class="flex flex-col gap-6 mt-6">
-            <!-- Os gráficos de Qtd e Valor serão injetados aqui -->
+            <!-- Gráficos injetados dinamicamente -->
         </div>
 
         <!-- TABELA EXECUTIVA -->
         <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mt-6">
             <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h2 class="text-lg font-bold text-slate-800">Status Geral do Cenário até 31 de Dezembro</h2>
+                <h2 class="text-lg font-bold text-slate-800">Status Geral do Cenário até a Conclusão</h2>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse min-w-[1200px]">
@@ -125,7 +125,6 @@
                     const matchKey = cleanProc(p.processo) + "_" + sanitize(p.produto);
                     const actualItem = dadosRaw.find(d => d.matchKey === matchKey);
                     
-                    // Pega o valor do banco de dados (Reajustado. Se não houver, usa Original)
                     p.preco_orig = actualItem ? actualItem.preco_orig : 0;
                     p.preco_reaj = actualItem ? actualItem.preco_reaj : 0;
                     p.preco_ativo = p.preco_reaj > 0 ? p.preco_reaj : p.preco_orig;
@@ -135,7 +134,7 @@
                     const itemProcessado = calcularCurvas(p, eventosProducao);
                     itemProcessado.uniqueKey = matchKey;
                     return itemProcessado;
-                }).filter(d => d.historico.length > 0);
+                }).filter(d => d.historico && d.historico.length > 0);
 
                 globalData.forEach(d => selectedItems.add(d.uniqueKey));
 
@@ -162,10 +161,9 @@
             return 0; 
         }
 
-        // Encontra a próxima sexta-feira a partir de um Timestamp (ou o próprio dia, se já for sexta)
         function getNextFriday(ts) {
             let d = new Date(ts);
-            let day = d.getDay(); // 0 = Domingo, 5 = Sexta
+            let day = d.getDay(); // 0 = Dom, 5 = Sex
             let diff = (5 - day + 7) % 7;
             d.setDate(d.getDate() + diff);
             return d.getTime();
@@ -192,7 +190,6 @@
                 let tsBruto = parseDataBRToTs(rawDatas[i]);
                 let rawQtd = rawQtds[i] !== undefined ? rawQtds[i] : rawQtds[rawQtds.length - 1];
                 let qtd = parseLocalNumber(rawQtd);
-                
                 if (tsBruto > 0) periodos.push({ ts: tsBruto, qtd: qtd, dateStr: rawDatas[i].trim() });
             }
             
@@ -200,47 +197,49 @@
             if (periodos.length === 0) return { ...item, historico: [] };
 
             const tsInicioBruto = periodos[0].ts;
-            // Ajusta o início da linha do tempo para a PRIMEIRA SEXTA-FEIRA após a data de início da projeção
             const tsInicioSexta = getNextFriday(tsInicioBruto);
-            
-            const anoAtual = new Date(tsInicioSexta).getFullYear();
-            const tsFimAno = new Date(anoAtual, 11, 31).getTime();
             const tsHoje = new Date().getTime();
+
+            let maxProdTs = 0;
+            eventos_producao.forEach(e => {
+                const eTs = parseDataBRToTs(e.data);
+                if(eTs > maxProdTs) maxProdTs = eTs;
+            });
+            
+            const limiteRealTs = Math.max(tsHoje, maxProdTs);
 
             let historico = [];
             let currentTs = tsInicioSexta;
-            
-            // Variável para amarrar o acumulado em blocos de 7 dias
             let lastTs = tsInicioSexta - (7 * 86400000); 
 
             let projAcumulada = 0;
             let realAcumulada = 0;
 
-            // Inicia o gráfico no marco zero (na sexta-feira anterior ao início projetado)
             historico.push({
                 ts: lastTs,
-                label: new Date(lastTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}),
-                proj: 0,
-                real: 0,
-                projVal: 0,
-                realVal: 0
+                label: new Date(lastTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'2-digit'}),
+                proj: 0, real: 0, projVal: 0, realVal: 0
             });
 
-            // Caminha de sexta em sexta
-            while (currentTs <= tsFimAno) {
-                
-                // Determina a quantidade semanal desta fase da projeção
+            let iterations = 0;
+            
+            // AGORA VAI ALÉM DE DEZEMBRO: Continua até bater a meta ou passarmos do limite da data atual
+            while ((projAcumulada < item.faltante || currentTs <= limiteRealTs) && iterations < 300) {
+                iterations++;
+
                 let activeQtd = periodos[0].qtd;
                 for (let p of periodos) {
-                    // Considera que entrou na fase se o dia da semana atual já encostou na data planejada
                     if (currentTs >= p.ts) activeQtd = p.qtd;
                 }
                 
-                // Soma a Projeção (Limitada à Meta)
+                // Trava de segurança para não gerar looping eterno se a Qtd for 0 e já passamos do dia de hoje
+                if (activeQtd <= 0 && currentTs > limiteRealTs) break;
+                
+                // Soma Projeção (Limitada à Meta)
                 projAcumulada += activeQtd;
                 if (projAcumulada > item.faltante) projAcumulada = item.faltante;
                 
-                // Soma o Realizado apenas entre a sexta passada e esta sexta
+                // Soma Real
                 let sumSemana = 0;
                 eventos_producao.forEach(e => {
                     const eTs = parseDataBRToTs(e.data);
@@ -250,12 +249,11 @@
                 });
                 realAcumulada += sumSemana;
 
-                // REGRA DO REALIZADO: Só exibe se já chegamos nesta sexta, OU se tem produção antecipada nela
                 let showReal = currentTs <= tsHoje || sumSemana > 0;
 
                 historico.push({
                     ts: currentTs,
-                    label: new Date(currentTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'}),
+                    label: new Date(currentTs).toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit', year:'2-digit'}),
                     proj: projAcumulada,
                     real: showReal ? realAcumulada : null, 
                     projVal: projAcumulada * item.preco_ativo,
@@ -268,7 +266,7 @@
 
             item.periodos = periodos; 
             item.historico = historico;
-            item.proj_fim_ano = projAcumulada;
+            item.proj_final = projAcumulada;
             item.real_total_atual = realAcumulada;
 
             return item;
@@ -340,7 +338,7 @@
                     <td class="text-center text-slate-600 align-middle">${datasHtml}</td>
                     <td class="text-center text-blue-600 font-semibold align-middle">${qtdsHtml}</td>
                     <td class="text-center font-bold text-red-600 bg-red-50/50 border-l border-slate-200 align-middle">${d.faltante.toLocaleString('pt-BR')}</td>
-                    <td class="text-center font-bold text-blue-600 bg-blue-50/50 align-middle">${d.proj_fim_ano.toLocaleString('pt-BR')}</td>
+                    <td class="text-center font-bold text-blue-600 bg-blue-50/50 align-middle">${d.proj_final.toLocaleString('pt-BR')}</td>
                     <td class="text-center font-bold text-emerald-700 bg-emerald-50/50 text-lg align-middle">${d.real_total_atual.toLocaleString('pt-BR')}</td>
                     <td class="text-center border-l border-slate-200 align-middle">${statusReal}</td>
                 `;
@@ -356,7 +354,7 @@
             container.innerHTML = '';
 
             if (data.length === 0) {
-                container.innerHTML = `<div class="col-span-full text-center text-slate-500 py-10 bg-white rounded-2xl border border-slate-200 shadow-sm">Selecione ao menos um produto para exibir os gráficos.</div>`;
+                container.innerHTML = `<div class="text-center text-slate-500 py-10 bg-white rounded-2xl border border-slate-200 shadow-sm">Selecione ao menos um produto para exibir os gráficos.</div>`;
                 return;
             }
 
@@ -383,7 +381,7 @@
                             
                             <div class="mt-4 flex gap-4 text-xs">
                                 <div class="bg-slate-50 border border-slate-200 rounded px-3 py-2">
-                                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Preço Ativo</span>
+                                    <span class="block text-[10px] font-bold text-slate-400 uppercase">Preço Ativo Utilizado</span>
                                     <span class="font-bold text-slate-700 text-sm">${formatMoney(item.preco_ativo)}</span>
                                 </div>
                                 <div class="bg-emerald-50 border border-emerald-100 rounded px-3 py-2 text-emerald-800">
@@ -404,16 +402,15 @@
                         </div>
                     </div>
                     
-                    <!-- GRID COM OS DOIS GRÁFICOS (FÍSICO E FINANCEIRO) -->
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                         <div class="bg-slate-50/50 rounded-xl p-3 border border-slate-100 relative">
-                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-boxes-stacked mr-1"></i> Projeção Física (Quantidades)</h4>
+                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-boxes-stacked mr-1"></i> Projeção Física (Qtd)</h4>
                             <div class="relative h-[300px] w-full">
                                 <canvas id="${chartIdQtd}"></canvas>
                             </div>
                         </div>
                         <div class="bg-slate-50/50 rounded-xl p-3 border border-slate-100 relative">
-                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-money-bill-trend-up mr-1"></i> Projeção Financeira (Valores)</h4>
+                            <h4 class="text-center text-[11px] font-bold text-slate-500 uppercase mb-3"><i class="fa-solid fa-money-bill-trend-up mr-1"></i> Projeção Financeira (R$)</h4>
                             <div class="relative h-[300px] w-full">
                                 <canvas id="${chartIdVal}"></canvas>
                             </div>
@@ -477,7 +474,7 @@
                             {
                                 label: 'Realizado R$ (Acumulado)',
                                 data: valRealVal,
-                                borderColor: '#059669', // Verde escuro
+                                borderColor: '#059669',
                                 backgroundColor: 'rgba(16, 185, 129, 0.15)',
                                 borderWidth: 3, fill: true, tension: 0.1, pointRadius: 4,
                                 datalabels: {
@@ -488,7 +485,7 @@
                             {
                                 label: 'Projeção R$ (Cumulativa)',
                                 data: valProjVal,
-                                borderColor: '#4f46e5', // Indigo
+                                borderColor: '#4f46e5',
                                 backgroundColor: 'transparent',
                                 borderWidth: 2, borderDash: [2, 2], tension: 0.1, pointRadius: 3,
                                 datalabels: {
@@ -508,7 +505,6 @@
             });
         }
 
-        // Configuração reaproveitável do Chart.js para manter ambos consistentes
         function getChartOptions(type, maxLimit) {
             return {
                 responsive: true,

@@ -84,17 +84,45 @@ function getCol(row, possibleNames) {
     return '';
 }
 
+// LISTA COMPLETA DOS ITENS (UNINDO OS ANTIGOS E OS NOVOS)
 const targets = [
+    // --- FUNDEF 1 (Antigos) ---
     { fundef: 1, processo: '202456010136590', item: 'CARTEIRA ESCOLAR' },
     { fundef: 1, processo: '202456010136590', item: 'CJ. ALUNO' },
     { fundef: 1, processo: '202456010136591', item: 'CJ. REFEITÓRIO' },
     { fundef: 1, processo: '202456010136591', item: 'CJ. PROFESSOR' },
     { fundef: 1, processo: '202456010136591', item: 'CADEIRA FIXA EM POLIPROPILENO' },
     { fundef: 1, processo: '202456010136591', item: 'LONGARINA' },
+    
+    // --- FUNDEF 1 (Novos) ---
+    { fundef: 1, processo: '202456010136592', item: 'ARMARIO DE 2 PORTAS' },
+    { fundef: 1, processo: '202456010136592', item: 'ARMÁRIO GUARDA VOLUMES' },
+    { fundef: 1, processo: '202456010136591', item: 'CADEIRA GIRATÓRIA' },
+    { fundef: 1, processo: '202456010136592', item: 'ESTANTE' },
+    { fundef: 1, processo: '202456010136592', item: 'MESA REDONDA' },
+    { fundef: 1, processo: '202456010136592', item: 'MESA RETA' },
+    
+    // --- FUNDEF 2 (Antigos) ---
     { fundef: 2, processo: '202656010134023', item: 'CJ. ALUNO TAM 6' },
     { fundef: 2, processo: '202656010134023', item: 'CJ. REFEITÓRIO 8 LUGARES' },
     { fundef: 2, processo: '202656010134023', item: 'ESTANTE ABERTA 4 PRATELEIRAS' },
-    { fundef: 2, processo: '202656010134023', item: 'ESTANTE ABERTA 8 PRATELEIRAS' }
+    { fundef: 2, processo: '202656010134023', item: 'ESTANTE ABERTA 8 PRATELEIRAS' },
+
+    // --- FUNDEF 2 (Novos) ---
+    { fundef: 2, processo: '202656010134023', item: 'CARTEIRA ESCOLAR PADRÃO FNDE TAM 6' },
+    { fundef: 2, processo: '202656010134023', item: 'CJ. PROFESSOR PADRÃO FNDE' },
+    { fundef: 2, processo: '202656010134023', item: 'ARMÁRIO ALTO 2 PORTAS' },
+    { fundef: 2, processo: '202656010134023', item: 'ARMÁRIO ARQUIVO 4 GAVETAS' },
+    { fundef: 2, processo: '202656010134023', item: 'ARMÁRIO GUARDA VOLUME 8 PORTAS' },
+    { fundef: 2, processo: '202656010134023', item: 'ARMÁRIO SUSPENSO COM PORTAS E NICHO' },
+    { fundef: 2, processo: '202656010134023', item: 'CADEIRA FIXA' },
+    { fundef: 2, processo: '202656010134023', item: 'CADEIRA GIRATÓRIA' },
+    { fundef: 2, processo: '202656010134023', item: 'ESTAÇÃO DE TRABALHO 4 LUGARES' },
+    { fundef: 2, processo: '202656010134023', item: 'GAVETEIRO 3 GAVETAS' },
+    { fundef: 2, processo: '202656010134023', item: 'LONGARINA FIXA 3 LUGARES' },
+    { fundef: 2, processo: '202656010134023', item: 'MESA DE REUNIÃO REDONDA' },
+    { fundef: 2, processo: '202656010134023', item: 'MESA RETA COM GAVETA' },
+    { fundef: 2, processo: '202656010134023', item: 'MESA RETA SEM GAVETA' }
 ];
 
 // ======================
@@ -188,7 +216,6 @@ app.get('/api/projecao', async (req, res) => {
                 produto: getCol(row, ['PRODUTO', 'ITEM']),
                 faltante: parseNumber(getCol(row, ['FALTANTENODIA1210', 'FALTANTE'])),
                 
-                // MANTIDOS COMO STRING BRUTA PARA LER MÚLTIPLAS FASES COM ";"
                 data_inicio: getCol(row, ['DATAINICIOPROJECAO', 'DATAINICIO', 'INICIO']),
                 qtd_semanal: getCol(row, ['QUANTIDADESEMANAL', 'QTDSEMANAL'])
             };

@@ -14,8 +14,12 @@
         table tbody tr:hover { background-color: #f8fafc; }
         .tab-btn.active { background-color: #2563eb; color: white; border-color: #2563eb; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.4); }
         .tab-btn { background-color: #f8fafc; color: #64748b; border-color: #cbd5e1; }
+        
+        /* Checkbox dos filtros */
         .item-checkbox:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
         .item-checkbox-geral:checked + span { background-color: #2563eb; color: white; border-color: #2563eb; }
+        
+        /* Oculta setinhas chatas do input number */
         input[type=number]::-webkit-inner-spin-button, 
         input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
     </style>
@@ -36,6 +40,7 @@
                     <button id="btnF1" onclick="setFundef(1)" class="tab-btn active px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 1</button>
                     <button id="btnF2" onclick="setFundef(2)" class="tab-btn px-6 py-2 rounded-md font-bold text-sm transition-all border">FUNDEF 2</button>
                 </div>
+                <!-- BOTÕES DE NAVEGAÇÃO -->
                 <a href="/projecao" class="bg-indigo-600 text-white px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors shadow-md border border-indigo-700 flex items-center">
                     <i class="fa-solid fa-calendar-days mr-2"></i> Projeção
                 </a>
@@ -337,12 +342,19 @@
             updateTableAndKPIs(fData);
 
             if (rebuildSelectors) {
+                // LISTA APENAS COM OS PRODUTOS ANTIGOS (Para marcarem Checked por padrão)
+                const itensAntigos = [
+                    'CARTEIRA ESCOLAR', 'CJ. ALUNO', 'CJ. REFEITÓRIO', 'CJ. PROFESSOR', 'CADEIRA FIXA EM POLIPROPILENO', 'LONGARINA',
+                    'CJ. ALUNO TAM 6', 'CJ. REFEITÓRIO 8 LUGARES', 'ESTANTE ABERTA 4 PRATELEIRAS', 'ESTANTE ABERTA 8 PRATELEIRAS'
+                ];
+
                 const containerGeral = document.getElementById('itemSelectorsGeral');
                 containerGeral.innerHTML = '';
                 fData.forEach((d) => {
+                    const isChecked = itensAntigos.includes(d.item) ? 'checked' : '';
                     containerGeral.innerHTML += `
                         <label class="cursor-pointer">
-                            <input type="checkbox" value="${d.matchKey}" checked class="item-checkbox-geral hidden" onchange="updateGeralChartsAndPeriod()">
+                            <input type="checkbox" value="${d.matchKey}" ${isChecked} class="item-checkbox-geral hidden" onchange="updateGeralChartsAndPeriod()">
                             <span class="px-3 py-1.5 rounded-full border border-slate-300 text-xs font-semibold text-slate-600 transition-colors inline-block shadow-sm select-none">${d.item}</span>
                         </label>
                     `;
@@ -350,11 +362,11 @@
 
                 const containerSpec = document.getElementById('itemSelectors');
                 containerSpec.innerHTML = '';
-                fData.forEach((d, i) => {
-                    const chk = i === 0 ? 'checked' : '';
+                fData.forEach((d) => {
+                    const isChecked = itensAntigos.includes(d.item) ? 'checked' : '';
                     containerSpec.innerHTML += `
                         <label class="cursor-pointer">
-                            <input type="checkbox" value="${d.matchKey}" ${chk} class="item-checkbox hidden" onchange="updateSpecCharts()">
+                            <input type="checkbox" value="${d.matchKey}" ${isChecked} class="item-checkbox hidden" onchange="updateSpecCharts()">
                             <span class="px-3 py-1.5 rounded-full border border-slate-300 text-xs font-semibold text-slate-600 transition-colors inline-block shadow-sm select-none">${d.item}</span>
                         </label>
                     `;
@@ -424,6 +436,7 @@
             return timeline.length ? timeline : [{ date: 'Sem Dados', pQtdDaily:0, pQtdAcum:0, pOrigDaily:0, pOrigAcum:0, pReajDaily:0, pReajAcum:0, eQtdDaily:0, eQtdAcum:0, eOrigDaily:0, eOrigAcum:0, eReajDaily:0, eReajAcum:0 }];
         }
 
+        // --- RENDERIZAÇÃO E TOOLTIPS ---
         function render4Charts(timeline, prefix) {
             const labels = timeline.map(t => t.date);
             const isAcum = document.getElementById('chartViewMode').value === 'acumulado';
@@ -457,7 +470,7 @@
                 type: chartType, 
                 label: cfg.label, 
                 data: cfg.data, 
-                dailyData: cfg.dailyData, 
+                dailyData: cfg.dailyData,
                 borderColor: cfg.borderColor,
                 backgroundColor: chartType === 'bar' ? cfg.borderColor : cfg.bg, 
                 borderWidth: chartType === 'bar' ? 0 : 2, fill: cfg.bg !== 'transparent',
@@ -469,7 +482,6 @@
                 data: { labels, datasets },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    // Aumentando espaços para os números não cortarem
                     layout: { padding: { top: 45, bottom: 25, right: 15 } },
                     plugins: { 
                         legend: { position: 'top', labels: {boxWidth: 10, font: {size: 10}} },
@@ -494,10 +506,9 @@
                             }
                         },
 
-                        // LABELS INTELIGENTES
+                        // LABELS INTELIGENTES VERTICAIS E SEPARADAS
                         datalabels: {
                             rotation: -90,
-                            // O principal vai pra cima (end/top), o secundário pra baixo (start/bottom)
                             align: (context) => chartType === 'line' ? (context.datasetIndex === 0 ? 'top' : 'bottom') : 'top',
                             anchor: (context) => chartType === 'line' ? (context.datasetIndex === 0 ? 'end' : 'start') : 'end',
                             offset: 6, 
@@ -506,7 +517,7 @@
                             formatter: (v, context) => {
                                 if (!v || v <= 0) return ''; 
                                 
-                                // Oculta o valor original se for muito próximo (diferença < 5%)
+                                // Oculta o original se a diferença pro reajustado for < 5%
                                 if (chartType === 'line' && context.datasetIndex === 1) {
                                     const outroValor = context.chart.data.datasets[0].data[context.dataIndex];
                                     if (outroValor && Math.abs(v - outroValor) < (outroValor * 0.05)) return ''; 
@@ -523,7 +534,7 @@
                     scales: { 
                         x: { ticks: { font: {size: 9} } },
                         y: { 
-                            grace: '20%', // Dá espaço extra no topo do gráfico
+                            grace: '20%', 
                             ticks: { font: {size: 9}, callback: (v) => type === 'val' ? 'R$ '+(v/1000).toFixed(0)+'k' : v } 
                         }
                     }
